@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ActiveTab,
   LaborRateItem,
@@ -7,9 +7,13 @@ import {
   PackagingItem,
   ProductItem,
 } from './types/pricing';
-import { usePennyCraftStore } from './hooks/usePennyCraftStore';
+import {
+  usePennyCraftStore,
+  checkHasExistingLocalStorageData,
+} from './hooks/usePennyCraftStore';
 import { isPriceStale } from './utils/calculations';
 import { Navbar } from './components/Navbar';
+import { LandingPage } from './components/LandingPage';
 import { SupplyView } from './components/SupplyView';
 import { LaborRatesView } from './components/LaborRatesView';
 import { ProductsView } from './components/ProductsView';
@@ -24,6 +28,8 @@ export function App() {
     user,
     isSyncingCloud,
     signOutCloud,
+    hasExistingStudioData,
+    activateLocalStudio,
     materials,
     packaging,
     laborRates,
@@ -57,6 +63,50 @@ export function App() {
     resetDemoData,
   } = usePennyCraftStore();
 
+  const explicitLandingRef = useRef(false);
+
+  const [currentRoute, setCurrentRoute] = useState<'/' | '/app'>(() => {
+    if (window.location.pathname.startsWith('/app')) return '/app';
+    if (checkHasExistingLocalStorageData()) return '/app';
+    return '/';
+  });
+
+  useEffect(() => {
+    if (currentRoute === '/app' && window.location.pathname !== '/app') {
+      window.history.replaceState({}, '', '/app');
+    }
+  }, [currentRoute]);
+
+  // If authenticated session loads and user hasn't explicitly chosen Landing Page, open /app
+  useEffect(() => {
+    if (user && currentRoute === '/' && !explicitLandingRef.current) {
+      window.history.replaceState({}, '', '/app');
+      setCurrentRoute('/app');
+    }
+  }, [user, currentRoute]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentRoute(
+        window.location.pathname.startsWith('/app') ? '/app' : '/'
+      );
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (path: '/' | '/app', fromExplicitLanding = false) => {
+    explicitLandingRef.current = fromExplicitLanding;
+    if (path === '/app') {
+      activateLocalStudio();
+    }
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+    setCurrentRoute(path);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const [activeTab, setActiveTab] = useState<ActiveTab>('products');
   const [isSupplyModalOpen, setIsSupplyModalOpen] = useState(false);
   const [modalEntityType, setModalEntityType] =
@@ -78,6 +128,15 @@ export function App() {
     setTimeout(() => {
       setToastMessage((prev) => (prev === msg ? null : prev));
     }, 3200);
+  };
+
+  const handleSmartLogoClick = () => {
+    if (hasExistingStudioData) {
+      setActiveTab('products');
+      navigateTo('/app');
+    } else {
+      navigateTo('/', true);
+    }
   };
 
   const staleCounts = useMemo(
@@ -118,8 +177,40 @@ export function App() {
     setIsSupplyModalOpen(true);
   };
 
+  if (currentRoute === '/') {
+    return (
+      <>
+        <LandingPage
+          onOpenStudio={() => {
+            setActiveTab('products');
+            navigateTo('/app');
+          }}
+          onOpenCloudModal={() => setIsAuthModalOpen(true)}
+          onLogoClick={handleSmartLogoClick}
+        />
+
+        {toastMessage && (
+          <div className="fixed bottom-5 right-5 z-50 bg-white border border-[#E8ECE9] text-[#303C36] px-4 py-2.5 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.08)] flex items-center gap-2 text-xs font-medium">
+            <CheckCircle2 className="w-4 h-4 text-[#42685B] shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onAuthSuccess={(msg) => {
+            showToast(msg);
+            setActiveTab('products');
+            navigateTo('/app');
+          }}
+        />
+      </>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#F4F7FB] text-slate-800 flex flex-col">
+    <div className="min-h-screen bg-[#FAFBFA] text-[#303C36] flex flex-col">
       {/* Top App Navigation */}
       <Navbar
         activeTab={activeTab}
@@ -144,6 +235,8 @@ export function App() {
           resetDemoData();
           showToast('Sample studio data, recipes & pricing rules restored.');
         }}
+        onNavigateHome={() => navigateTo('/', true)}
+        onLogoClick={handleSmartLogoClick}
       />
 
       {/* Main Content Area */}
@@ -269,8 +362,8 @@ export function App() {
 
       {/* HeroUI Floating Pill Toast Feedback */}
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-50 bg-white border border-slate-100 text-slate-800 px-4 py-2.5 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.08)] flex items-center gap-2 text-xs font-medium">
-          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+        <div className="fixed bottom-5 right-5 z-50 bg-white border border-[#E8ECE9] text-[#303C36] px-4 py-2.5 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.08)] flex items-center gap-2 text-xs font-medium">
+          <CheckCircle2 className="w-4 h-4 text-[#42685B] shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}

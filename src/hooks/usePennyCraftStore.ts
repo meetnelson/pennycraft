@@ -81,6 +81,26 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   }
 }
 
+export function checkHasExistingLocalStorageData(): boolean {
+  try {
+    const rawMats = localStorage.getItem(STORAGE_KEYS.MATERIALS);
+    const rawProds = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+    const rawRules = localStorage.getItem(STORAGE_KEYS.PRICING_RULES);
+    if (!rawMats && !rawProds && !rawRules) return false;
+
+    const mats = rawMats ? JSON.parse(rawMats) : [];
+    const prods = rawProds ? JSON.parse(rawProds) : [];
+    const rules = rawRules ? JSON.parse(rawRules) : [];
+    return (
+      (Array.isArray(mats) && mats.length > 0) ||
+      (Array.isArray(prods) && prods.length > 0) ||
+      (Array.isArray(rules) && rules.length > 0)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function loadNormalizedInitialData() {
   const idMap = new Map<string, string>();
 
@@ -181,8 +201,13 @@ function loadNormalizedInitialData() {
 }
 
 export function usePennyCraftStore() {
+  const initialHasLocal = useRef(
+    checkHasExistingLocalStorageData() ||
+      window.location.pathname.startsWith('/app')
+  ).current;
   const initial = useRef(loadNormalizedInitialData()).current;
 
+  const [hasLocalData, setHasLocalData] = useState<boolean>(initialHasLocal);
   const [materials, setMaterials] = useState<MaterialItem[]>(initial.materials);
   const [packaging, setPackaging] = useState<PackagingItem[]>(initial.packaging);
   const [laborRates, setLaborRates] = useState<LaborRateItem[]>(
@@ -213,6 +238,10 @@ export function usePennyCraftStore() {
   const [user, setUser] = useState<User | null>(null);
   const [isSyncingCloud, setIsSyncingCloud] = useState<boolean>(false);
   const migratedUserIdRef = useRef<string | null>(null);
+
+  const activateLocalStudio = useCallback(() => {
+    setHasLocalData(true);
+  }, []);
 
   // Keep latest state refs for migration on login
   const latestStateRef = useRef({
@@ -588,38 +617,43 @@ export function usePennyCraftStore() {
 
   // --- LOCAL STORAGE PERSISTENCE ---
   useEffect(() => {
+    if (!hasLocalData) return;
     try {
       localStorage.setItem(STORAGE_KEYS.MATERIALS, JSON.stringify(materials));
     } catch (e) {
       console.error('Error saving materials to localStorage:', e);
     }
-  }, [materials]);
+  }, [materials, hasLocalData]);
 
   useEffect(() => {
+    if (!hasLocalData) return;
     try {
       localStorage.setItem(STORAGE_KEYS.PACKAGING, JSON.stringify(packaging));
     } catch (e) {
       console.error('Error saving packaging to localStorage:', e);
     }
-  }, [packaging]);
+  }, [packaging, hasLocalData]);
 
   useEffect(() => {
+    if (!hasLocalData) return;
     try {
       localStorage.setItem(STORAGE_KEYS.LABOR_RATES, JSON.stringify(laborRates));
     } catch (e) {
       console.error('Error saving labor rates to localStorage:', e);
     }
-  }, [laborRates]);
+  }, [laborRates, hasLocalData]);
 
   useEffect(() => {
+    if (!hasLocalData) return;
     try {
       localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
     } catch (e) {
       console.error('Error saving products to localStorage:', e);
     }
-  }, [products]);
+  }, [products, hasLocalData]);
 
   useEffect(() => {
+    if (!hasLocalData) return;
     try {
       localStorage.setItem(
         STORAGE_KEYS.PRICING_RULES,
@@ -628,9 +662,10 @@ export function usePennyCraftStore() {
     } catch (e) {
       console.error('Error saving pricing rules to localStorage:', e);
     }
-  }, [pricingRules]);
+  }, [pricingRules, hasLocalData]);
 
   useEffect(() => {
+    if (!hasLocalData) return;
     try {
       localStorage.setItem(
         STORAGE_KEYS.CASCADE_ALERTS,
@@ -639,9 +674,10 @@ export function usePennyCraftStore() {
     } catch (e) {
       console.error('Error saving cascade alerts to localStorage:', e);
     }
-  }, [cascadeAlerts]);
+  }, [cascadeAlerts, hasLocalData]);
 
   useEffect(() => {
+    if (!hasLocalData) return;
     try {
       localStorage.setItem(
         STORAGE_KEYS.MATERIAL_CATEGORIES,
@@ -650,9 +686,10 @@ export function usePennyCraftStore() {
     } catch (e) {
       console.error('Error saving material categories to localStorage:', e);
     }
-  }, [materialCategories]);
+  }, [materialCategories, hasLocalData]);
 
   useEffect(() => {
+    if (!hasLocalData) return;
     try {
       localStorage.setItem(
         STORAGE_KEYS.PACKAGING_CATEGORIES,
@@ -661,9 +698,10 @@ export function usePennyCraftStore() {
     } catch (e) {
       console.error('Error saving packaging categories to localStorage:', e);
     }
-  }, [packagingCategories]);
+  }, [packagingCategories, hasLocalData]);
 
   useEffect(() => {
+    if (!hasLocalData) return;
     try {
       localStorage.setItem(
         STORAGE_KEYS.PRODUCT_CATEGORIES,
@@ -672,7 +710,7 @@ export function usePennyCraftStore() {
     } catch (e) {
       console.error('Error saving product categories to localStorage:', e);
     }
-  }, [productCategories]);
+  }, [productCategories, hasLocalData]);
 
   // Dynamic category helpers (auto-trimmed)
   const ensureMaterialCategory = useCallback((rawCategory: string): string => {
@@ -1431,10 +1469,17 @@ export function usePennyCraftStore() {
     setProductCategories(INITIAL_PRODUCT_CATEGORIES);
   }, []);
 
+  const hasExistingStudioData =
+    Boolean(user) ||
+    (hasLocalData &&
+      (materials.length > 0 || products.length > 0 || pricingRules.length > 0));
+
   return {
     user,
     isSyncingCloud,
     signOutCloud,
+    hasExistingStudioData,
+    activateLocalStudio,
     materials,
     packaging,
     laborRates,

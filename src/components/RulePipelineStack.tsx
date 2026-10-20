@@ -121,11 +121,12 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
   const getBlockVisualMeta = (block: PricingBlock) => {
     if (isBaseBlock(block.type)) {
       return {
-        dotClass: 'bg-slate-400',
-        borderLeftClass: 'border-l-slate-300',
-        amountColor: 'text-slate-700',
+        cardClass: 'bg-white border-[#E8ECE9] border-l-[#B8C9BD]',
+        dotClass: 'bg-[#42685B]',
+        labelColor: 'text-[#303C36]',
+        amountColor: 'text-[#303C36]',
         badgeText: 'Recipe',
-        badgeClass: 'bg-slate-100/80 text-slate-500',
+        badgeClass: 'bg-[#FAFBFA] border border-[#E8ECE9] text-[#63726A]',
       };
     }
     if (block.type === 'PERCENT_MODIFIER') {
@@ -135,36 +136,40 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
         block.label.toLowerCase().includes('commission');
       if (isFee) {
         return {
-          dotClass: 'bg-indigo-400',
-          borderLeftClass: 'border-l-indigo-400',
-          amountColor: 'text-indigo-600',
+          cardClass: 'bg-white border-[#E8ECE9] border-l-[#42685B]',
+          dotClass: 'bg-[#42685B]',
+          labelColor: 'text-[#303C36]',
+          amountColor: 'text-[#42685B]',
           badgeText: 'Fee',
-          badgeClass: 'bg-indigo-50 text-indigo-700',
+          badgeClass: 'bg-[#42685B]/10 text-[#42685B]',
         };
       }
       return {
-        dotClass: 'bg-emerald-400',
-        borderLeftClass: 'border-l-emerald-400',
-        amountColor: 'text-emerald-600',
+        cardClass: 'bg-[#FDF3F0] border-[#E8A184]/50 border-l-[#E8A184]',
+        dotClass: 'bg-[#E8A184]',
+        labelColor: 'text-[#C66746]',
+        amountColor: 'text-[#C66746]',
         badgeText: 'Margin',
-        badgeClass: 'bg-emerald-50 text-emerald-700',
+        badgeClass: 'bg-white/80 text-[#C66746] border border-[#E8A184]/40',
       };
     }
     if (block.type === 'FIXED_ADD') {
       return {
-        dotClass: 'bg-violet-400',
-        borderLeftClass: 'border-l-violet-400',
-        amountColor: 'text-violet-600',
+        cardClass: 'bg-white border-[#E8ECE9] border-l-[#B8C9BD]',
+        dotClass: 'bg-[#B8C9BD]',
+        labelColor: 'text-[#303C36]',
+        amountColor: 'text-[#42685B]',
         badgeText: 'Extra',
-        badgeClass: 'bg-violet-50 text-violet-700',
+        badgeClass: 'bg-[#B8C9BD]/25 text-[#303C36]',
       };
     }
     return {
-      dotClass: 'bg-amber-400',
-      borderLeftClass: 'border-l-amber-400',
-      amountColor: 'text-amber-600',
+      cardClass: 'bg-white border-[#E8ECE9] border-l-[#E8A184]',
+      dotClass: 'bg-[#E8A184]',
+      labelColor: 'text-[#303C36]',
+      amountColor: 'text-[#C66746]',
       badgeText: 'Discount',
-      badgeClass: 'bg-amber-50 text-amber-700',
+      badgeClass: 'bg-[#FDF3F0] text-[#C66746]',
     };
   };
 
@@ -188,18 +193,18 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                 setDraggedIndex(null);
                 setDragOverIndex(null);
               }}
-              className={`group relative bg-white rounded-2xl border border-slate-100 border-l-[3px] ${
-                meta.borderLeftClass
+              className={`group relative rounded-2xl border border-l-[3px] ${
+                meta.cardClass
               } shadow-[0_4px_20px_rgb(0,0,0,0.025)] transition-all duration-150 ${
                 dragOverIndex === index
-                  ? 'ring-2 ring-slate-300/60 bg-slate-50/40'
-                  : 'hover:border-slate-200/80'
+                  ? 'ring-2 ring-[#B8C9BD] bg-[#FAFBFA]'
+                  : 'hover:border-[#B8C9BD]'
               } ${compact ? 'px-3.5 py-2.5' : 'px-4 py-3'}`}
             >
               <div className="flex items-center justify-between gap-3">
-                {/* Left: Drag Handle, Pastel Dot, Label & Inline Controls */}
+                {/* Left: Drag Handle, Dot, Label & Inline Controls */}
                 <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 text-slate-300 group-hover:text-slate-400 cursor-grab active:cursor-grabbing shrink-0">
+                  <div className="flex items-center gap-1.5 text-[#B8C9BD] group-hover:text-[#63726A] cursor-grab active:cursor-grabbing shrink-0">
                     <GripVertical className="w-3.5 h-3.5" />
                     <span
                       className={`w-2 h-2 rounded-full ${meta.dotClass}`}
@@ -209,7 +214,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                   <div className="flex-1 min-w-0">
                     {isBase ? (
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs sm:text-sm font-medium text-slate-700">
+                        <span className="text-xs sm:text-sm font-medium text-[#303C36]">
                           {block.label}
                         </span>
                         <span
@@ -226,28 +231,28 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                           onChange={(e) =>
                             updateBlock(index, { label: e.target.value })
                           }
-                          className="text-xs sm:text-sm font-medium text-slate-700 bg-transparent rounded-lg px-1.5 py-0.5 border border-transparent hover:border-slate-200/70 focus:border-slate-300 focus:bg-white focus:outline-none min-w-[110px] max-w-[175px] transition-all"
+                          className={`text-xs sm:text-sm font-medium ${meta.labelColor} bg-transparent rounded-lg px-1.5 py-0.5 border border-transparent hover:border-[#E8ECE9] focus:border-[#B8C9BD] focus:bg-white focus:outline-none min-w-[110px] max-w-[175px] transition-all`}
                         />
 
                         {/* Value Input Pill */}
-                        <div className="inline-flex items-center bg-slate-50/70 border border-transparent focus-within:border-slate-300 focus-within:bg-white rounded-full px-2.5 py-0.5 transition-all">
+                        <div className="inline-flex items-center bg-white/80 border border-[#E8ECE9] focus-within:border-[#42685B] focus-within:bg-white rounded-full px-2.5 py-0.5 transition-all">
                           {block.type === 'FIXED_ADD' && (
-                            <span className="text-[11px] text-slate-400 mr-0.5">
+                            <span className="text-[11px] text-[#63726A] mr-0.5">
                               +$
                             </span>
                           )}
                           {block.type === 'DISCOUNT' && !block.is_percent && (
-                            <span className="text-[11px] text-slate-400 mr-0.5">
+                            <span className="text-[11px] text-[#63726A] mr-0.5">
                               -$
                             </span>
                           )}
                           {block.type === 'DISCOUNT' && block.is_percent && (
-                            <span className="text-[11px] text-amber-600 mr-0.5">
+                            <span className="text-[11px] text-[#C66746] mr-0.5">
                               -
                             </span>
                           )}
                           {block.type === 'PERCENT_MODIFIER' && (
-                            <span className="text-[11px] text-emerald-600 mr-0.5">
+                            <span className="text-[11px] text-[#C66746] mr-0.5">
                               +
                             </span>
                           )}
@@ -261,11 +266,11 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                                 value: parseFloat(e.target.value) || 0,
                               })
                             }
-                            className="w-11 bg-transparent text-xs font-medium text-slate-800 focus:outline-none text-right"
+                            className="w-11 bg-transparent text-xs font-medium text-[#303C36] focus:outline-none text-right"
                           />
                           {(block.type === 'PERCENT_MODIFIER' ||
                             (block.type === 'DISCOUNT' && block.is_percent)) && (
-                            <span className="text-[11px] text-slate-400 ml-0.5">
+                            <span className="text-[11px] text-[#63726A] ml-0.5">
                               %
                             </span>
                           )}
@@ -280,7 +285,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                                 is_percent: !block.is_percent,
                               })
                             }
-                            className="text-[11px] font-normal text-slate-500 hover:text-slate-800 px-2 py-0.5 rounded-full bg-slate-100/70 transition-colors"
+                            className="text-[11px] font-normal text-[#63726A] hover:text-[#303C36] px-2 py-0.5 rounded-full bg-[#FAFBFA] border border-[#E8ECE9] transition-colors"
                           >
                             {block.is_percent ? '%' : '$'}
                           </button>
@@ -296,7 +301,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                                 target: e.target.value as PercentTarget,
                               })
                             }
-                            className="text-[11px] font-normal text-slate-500 bg-slate-50/70 border border-transparent hover:border-slate-200/70 focus:border-slate-300 focus:bg-white rounded-full px-2.5 py-0.5 focus:outline-none transition-all"
+                            className="text-[11px] font-normal text-[#63726A] bg-white/80 border border-[#E8ECE9] hover:border-[#B8C9BD] focus:border-[#42685B] focus:bg-white rounded-full px-2.5 py-0.5 focus:outline-none transition-all"
                           >
                             <option value="RUNNING_SUBTOTAL">
                               on subtotal
@@ -321,7 +326,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                       {deltaAmount >= 0 ? '+' : '-'}
                       {formatCurrency(Math.abs(deltaAmount))}
                     </span>
-                    <span className="block text-[10px] font-normal text-slate-400">
+                    <span className="block text-[10px] font-normal text-[#63726A]">
                       {formatCurrency(runningSubtotal)}
                     </span>
                   </div>
@@ -333,7 +338,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                       disabled={index === 0}
                       onClick={() => moveBlock(index, -1)}
                       title="Move step up"
-                      className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg p-1 disabled:opacity-25 transition-colors"
+                      className="text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] rounded-lg p-1 disabled:opacity-25 transition-colors"
                     >
                       <ArrowUp className="w-3.5 h-3.5" />
                     </button>
@@ -342,7 +347,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                       disabled={index === blocks.length - 1}
                       onClick={() => moveBlock(index, 1)}
                       title="Move step down"
-                      className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg p-1 disabled:opacity-25 transition-colors"
+                      className="text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] rounded-lg p-1 disabled:opacity-25 transition-colors"
                     >
                       <ArrowDown className="w-3.5 h-3.5" />
                     </button>
@@ -351,7 +356,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                         type="button"
                         onClick={() => removeBlock(index)}
                         title="Remove step"
-                        className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg p-1 transition-colors"
+                        className="text-[#63726A] hover:text-rose-500 hover:bg-rose-50 rounded-lg p-1 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -366,15 +371,15 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
 
       {/* "+ Add Step" Pill Bar */}
       <div className="pt-2 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-normal text-slate-400">Add step:</span>
+        <span className="text-xs font-normal text-[#63726A]">Add step:</span>
 
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={() => addModifierBlock('MARGIN')}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100/70 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#C66746] bg-[#FDF3F0] border border-[#E8A184]/50 hover:bg-[#F9E3DC] transition-colors"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#E8A184]" />
             <Plus className="w-3 h-3" />
             <span>Margin %</span>
           </button>
@@ -382,9 +387,9 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
           <button
             type="button"
             onClick={() => addModifierBlock('FEE')}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100/70 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#42685B] bg-[#42685B]/10 border border-[#B8C9BD]/60 hover:bg-[#42685B]/15 transition-colors"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#42685B]" />
             <Plus className="w-3 h-3" />
             <span>Fee %</span>
           </button>
@@ -392,9 +397,9 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
           <button
             type="button"
             onClick={() => addModifierBlock('FIXED_ADD')}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-violet-700 bg-violet-50/80 hover:bg-violet-100/70 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#303C36] bg-[#B8C9BD]/25 border border-[#B8C9BD]/60 hover:bg-[#B8C9BD]/40 transition-colors"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#63726A]" />
             <Plus className="w-3 h-3" />
             <span>Extra $</span>
           </button>
@@ -402,9 +407,9 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
           <button
             type="button"
             onClick={() => addModifierBlock('DISCOUNT')}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-amber-700 bg-amber-50/80 hover:bg-amber-100/70 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#C66746] bg-[#FAFBFA] border border-[#E8ECE9] hover:border-[#E8A184] transition-colors"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#E8A184]" />
             <Plus className="w-3 h-3" />
             <span>Discount</span>
           </button>

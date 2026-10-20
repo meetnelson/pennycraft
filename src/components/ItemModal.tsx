@@ -236,23 +236,23 @@ export const ItemModal: React.FC<ItemModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#303C36]/20 backdrop-blur-sm animate-fadeIn"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-3xl shadow-[0_14px_40px_rgb(0,0,0,0.06)] w-full max-w-xl overflow-hidden border border-slate-100">
+      <div className="bg-white rounded-3xl shadow-[0_14px_40px_rgb(0,0,0,0.06)] w-full max-w-xl overflow-hidden border border-[#E8ECE9]">
         {/* Modal Header */}
-        <div className="px-7 pt-7 pb-5 flex items-center justify-between border-b border-slate-100">
+        <div className="px-7 pt-7 pb-5 flex items-center justify-between border-b border-[#E8ECE9]">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-coral-50 border border-coral-100/80 text-[#E07A5F] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-2xl bg-[#42685B]/10 border border-[#B8C9BD]/60 text-[#42685B] flex items-center justify-center">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-semibold text-slate-800">
+              <h2 className="text-base sm:text-lg font-semibold text-[#303C36]">
                 {isEditing ? 'Edit Studio Item' : 'Add New Studio Item'}
               </h2>
-              <p className="text-xs font-normal text-slate-400">
+              <p className="text-xs font-normal text-[#63726A]">
                 {isEditing
                   ? 'Updating price refreshes freshness date & flags affected products'
                   : 'Automatic unit cost across Imperial, Metric & Area units'}
@@ -263,7 +263,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100/70 transition-colors"
+            className="p-2 rounded-full text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -280,9 +280,9 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                     onClose();
                     onSwitchToCreateProduct();
                   }}
-                  className="inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-full text-xs font-normal text-slate-500 hover:text-slate-800 hover:bg-slate-100/80 transition-all"
+                  className="inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-full text-xs font-normal text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] transition-all"
                 >
-                  <ShoppingBag className="w-3.5 h-3.5 text-[#E07A5F]" />
+                  <ShoppingBag className="w-3.5 h-3.5 text-[#E8A184]" />
                   <span>Product</span>
                 </button>
               )}
@@ -292,11 +292,11 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                 onClick={() => handleEntityTypeSwitch('materials')}
                 className={`inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-full text-xs transition-all ${
                   entityType === 'materials'
-                    ? 'bg-slate-100 text-slate-900 font-medium'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-normal'
+                    ? 'bg-[#42685B]/10 text-[#42685B] font-semibold border border-[#B8C9BD]/60'
+                    : 'text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] font-normal'
                 }`}
               >
-                <Layers className="w-3.5 h-3.5 text-[#E07A5F]" />
+                <Layers className="w-3.5 h-3.5 text-[#E8A184]" />
                 <span>Material</span>
               </button>
 
@@ -305,11 +305,11 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                 onClick={() => handleEntityTypeSwitch('packaging')}
                 className={`inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-full text-xs transition-all ${
                   entityType === 'packaging'
-                    ? 'bg-slate-100 text-slate-900 font-medium'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-normal'
+                    ? 'bg-[#42685B]/10 text-[#42685B] font-semibold border border-[#B8C9BD]/60'
+                    : 'text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] font-normal'
                 }`}
               >
-                <Package className="w-3.5 h-3.5 text-[#E07A5F]" />
+                <Package className="w-3.5 h-3.5 text-[#E8A184]" />
                 <span>Packaging</span>
               </button>
 
@@ -318,11 +318,11 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                 onClick={() => handleEntityTypeSwitch('labor')}
                 className={`inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-full text-xs transition-all ${
                   entityType === 'labor'
-                    ? 'bg-slate-100 text-slate-900 font-medium'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-normal'
+                    ? 'bg-[#42685B]/10 text-[#42685B] font-semibold border border-[#B8C9BD]/60'
+                    : 'text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] font-normal'
                 }`}
               >
-                <Clock className="w-3.5 h-3.5 text-[#E07A5F]" />
+                <Clock className="w-3.5 h-3.5 text-[#E8A184]" />
                 <span>Labor Rate</span>
               </button>
             </div>
@@ -339,7 +339,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
 
           {/* Item Name */}
           <div>
-            <label className="block text-xs font-normal text-slate-400 mb-1.5">
+            <label className="block text-xs font-normal text-[#63726A] mb-1.5">
               {entityType === 'materials'
                 ? 'Material Name'
                 : entityType === 'packaging'
@@ -358,7 +358,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                   ? 'e.g., Small Kraft Mailer Box, Cotton Ribbon'
                   : 'e.g., Focused Manual Handcrafting'
               }
-              className="w-full px-4 py-2.5 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-sm font-normal text-slate-800 placeholder:text-slate-400 focus:outline-none transition-all"
+              className="w-full px-4 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-normal text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none transition-all"
             />
           </div>
 
@@ -367,10 +367,10 @@ export const ItemModal: React.FC<ItemModalProps> = ({
               {/* Dynamic Category Combobox */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-normal text-slate-400">
+                  <label className="block text-xs font-normal text-[#63726A]">
                     Category
                   </label>
-                  <span className="text-[11px] font-normal text-slate-400">
+                  <span className="text-[11px] font-normal text-[#63726A]">
                     Type a new name to auto-save
                   </span>
                 </div>
@@ -394,7 +394,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 {/* Purchase Unit */}
                 <div>
-                  <label className="block text-xs font-normal text-slate-400 mb-1.5">
+                  <label className="block text-xs font-normal text-[#63726A] mb-1.5">
                     Purchase Unit
                   </label>
                   <select
@@ -402,7 +402,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                     onChange={(e) =>
                       setPurchaseUnit(e.target.value as PurchaseUnit)
                     }
-                    className="w-full px-3.5 py-2.5 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-sm font-medium text-slate-800 focus:outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-medium text-[#303C36] focus:outline-none transition-all"
                   >
                     {PURCHASE_UNIT_GROUPS.map((grp) => (
                       <optgroup key={grp.group} label={grp.group}>
@@ -418,7 +418,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
 
                 {/* Purchase Quantity */}
                 <div>
-                  <label className="block text-xs font-normal text-slate-400 mb-1.5">
+                  <label className="block text-xs font-normal text-[#63726A] mb-1.5">
                     Package Qty ({purchaseUnit})
                   </label>
                   <input
@@ -429,17 +429,17 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                     value={purchaseQty}
                     onChange={(e) => setPurchaseQty(e.target.value)}
                     placeholder="e.g., 500"
-                    className="w-full px-3.5 py-2.5 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-sm font-medium text-slate-800 focus:outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-medium text-[#303C36] focus:outline-none transition-all"
                   />
                 </div>
 
                 {/* Price Paid */}
                 <div>
-                  <label className="block text-xs font-normal text-slate-400 mb-1.5">
+                  <label className="block text-xs font-normal text-[#63726A] mb-1.5">
                     Total Price Paid
                   </label>
                   <div className="relative">
-                    <DollarSign className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <DollarSign className="w-4 h-4 text-[#63726A] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="number"
                       step="0.01"
@@ -448,7 +448,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                       value={pricePaid}
                       onChange={(e) => setPricePaid(e.target.value)}
                       placeholder="45.00"
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-sm font-medium text-slate-800 focus:outline-none transition-all"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-medium text-[#303C36] focus:outline-none transition-all"
                     />
                   </div>
                 </div>
@@ -458,7 +458,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
               {selectedUnitMeta &&
                 selectedUnitMeta.presetQuantities.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                    <span className="text-[11px] font-normal text-slate-400 mr-1">
+                    <span className="text-[11px] font-normal text-[#63726A] mr-1">
                       {selectedUnitMeta.group} Presets:
                     </span>
                     {selectedUnitMeta.presetQuantities.map((preset) => {
@@ -470,8 +470,8 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                           onClick={() => setPurchaseQty(String(preset.qty))}
                           className={`px-3 py-1 rounded-full text-[11px] transition-all border ${
                             isActive
-                              ? 'bg-slate-800 text-white border-slate-800 font-medium'
-                              : 'bg-slate-50/80 text-slate-500 border-transparent hover:text-slate-800 hover:bg-slate-100 font-normal'
+                              ? 'bg-[#42685B] text-white border-[#42685B] font-medium'
+                              : 'bg-[#FAFBFA] text-[#63726A] border-[#E8ECE9] hover:text-[#303C36] hover:bg-[#B8C9BD]/20 font-normal'
                           }`}
                         >
                           {preset.label}
@@ -483,33 +483,33 @@ export const ItemModal: React.FC<ItemModalProps> = ({
 
               {/* Optional Supplier / Affiliate Link */}
               <div>
-                <label className="block text-xs font-normal text-slate-400 mb-1.5">
+                <label className="block text-xs font-normal text-[#63726A] mb-1.5">
                   Where to buy / Link (Optional)
                 </label>
                 <div className="relative">
-                  <Link2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Link2 className="w-4 h-4 text-[#63726A] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="url"
                     name="supplier_url"
                     value={supplierUrl}
                     onChange={(e) => setSupplierUrl(e.target.value)}
                     placeholder="https://..."
-                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-xs font-normal text-slate-700 placeholder:text-slate-400 focus:outline-none transition-all"
+                    className="w-full pl-9 pr-4 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-normal text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none transition-all"
                   />
                 </div>
               </div>
 
               {/* Immediate Live Unit Cost Feedback */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+              <div className="pt-4 border-t border-[#E8ECE9] flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-2xl bg-[#42685B]/10 border border-[#B8C9BD]/60 text-[#42685B] flex items-center justify-center shrink-0">
                     <Calculator className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-slate-700">
+                    <p className="text-xs font-medium text-[#303C36]">
                       Auto-Calculated Unit Cost
                     </p>
-                    <p className="text-xs font-normal text-slate-400">
+                    <p className="text-xs font-normal text-[#63726A]">
                       {!isNaN(parsedPrice) &&
                       !isNaN(parsedQty) &&
                       parsedQty > 0
@@ -520,10 +520,10 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                 </div>
 
                 <div className="text-right">
-                  <span className="text-2xl font-semibold text-emerald-600">
+                  <span className="text-2xl font-semibold text-[#42685B]">
                     {formatCurrency(liveUnitCost, true)}
                   </span>
-                  <span className="block text-xs font-normal text-slate-400">
+                  <span className="block text-xs font-normal text-[#63726A]">
                     per {purchaseUnit}
                   </span>
                 </div>
@@ -533,7 +533,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
             /* Labor Rate Form Fields */
             <>
               <div>
-                <label className="block text-xs font-normal text-slate-400 mb-1.5">
+                <label className="block text-xs font-normal text-[#63726A] mb-1.5">
                   Attention Type
                 </label>
                 <select
@@ -541,7 +541,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                   onChange={(e) =>
                     setAttentionType(e.target.value as AttentionType)
                   }
-                  className="w-full px-4 py-2.5 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-sm font-medium text-slate-800 focus:outline-none transition-all"
+                  className="w-full px-4 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-medium text-[#303C36] focus:outline-none transition-all"
                 >
                   <option value="Exclusive / Focused">
                     Exclusive / Focused
@@ -551,11 +551,11 @@ export const ItemModal: React.FC<ItemModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-normal text-slate-400 mb-1.5">
+                <label className="block text-xs font-normal text-[#63726A] mb-1.5">
                   Hourly Rate ($ / hr)
                 </label>
                 <div className="relative">
-                  <DollarSign className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <DollarSign className="w-4 h-4 text-[#63726A] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="number"
                     step="0.50"
@@ -564,25 +564,25 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                     value={hourlyRate}
                     onChange={(e) => setHourlyRate(e.target.value)}
                     placeholder="25.00"
-                    className="w-full pl-9 pr-16 py-2.5 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-sm font-medium text-slate-800 focus:outline-none transition-all"
+                    className="w-full pl-9 pr-16 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-medium text-[#303C36] focus:outline-none transition-all"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-normal text-slate-400">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-normal text-[#63726A]">
                     per hour
                   </span>
                 </div>
               </div>
 
               {/* Immediate Live Minute Rate Feedback */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+              <div className="pt-4 border-t border-[#E8ECE9] flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-2xl bg-[#42685B]/10 border border-[#B8C9BD]/60 text-[#42685B] flex items-center justify-center shrink-0">
                     <Calculator className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-slate-700">
+                    <p className="text-xs font-medium text-[#303C36]">
                       Auto-Calculated Minute Rate
                     </p>
-                    <p className="text-xs font-normal text-slate-400">
+                    <p className="text-xs font-normal text-[#63726A]">
                       {!isNaN(parsedHourly) && parsedHourly > 0
                         ? `${formatCurrency(parsedHourly)} ÷ 60 minutes`
                         : 'Enter an hourly rate'}
@@ -591,10 +591,10 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                 </div>
 
                 <div className="text-right">
-                  <span className="text-2xl font-semibold text-emerald-600">
+                  <span className="text-2xl font-semibold text-[#42685B]">
                     {formatCurrency(liveMinuteRate, true)}
                   </span>
-                  <span className="block text-xs font-normal text-slate-400">
+                  <span className="block text-xs font-normal text-[#63726A]">
                     per minute
                   </span>
                 </div>
@@ -603,19 +603,19 @@ export const ItemModal: React.FC<ItemModalProps> = ({
           )}
 
           {/* Modal Footer Actions */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <div className="pt-4 border-t border-[#E8ECE9] flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-full text-xs sm:text-sm font-normal text-slate-500 hover:text-slate-800 hover:bg-slate-100/70 transition-colors"
+              className="px-4 py-2 rounded-full text-xs sm:text-sm font-normal text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs sm:text-sm px-6 py-2.5 rounded-full shadow-xs transition-all"
+              className="inline-flex items-center gap-1.5 bg-[#42685B] hover:bg-[#36544a] text-white font-medium text-xs sm:text-sm px-6 py-2.5 rounded-full shadow-xs transition-all"
             >
-              <Check className="w-3.5 h-3.5 text-[#E07A5F]" />
+              <Check className="w-3.5 h-3.5 text-[#E8A184]" />
               <span>{isEditing ? 'Save Changes' : 'Create Item'}</span>
             </button>
           </div>

@@ -326,33 +326,33 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/20 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-[#303C36]/20 backdrop-blur-sm overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-3xl shadow-[0_14px_40px_rgb(0,0,0,0.06)] w-full max-w-6xl max-h-[93vh] flex flex-col overflow-hidden my-auto border border-slate-100">
+      <div className="bg-white rounded-3xl shadow-[0_14px_40px_rgb(0,0,0,0.06)] w-full max-w-6xl max-h-[93vh] flex flex-col overflow-hidden my-auto border border-[#E8ECE9]">
         {/* Top Modal Header */}
-        <div className="px-7 sm:px-10 py-5 flex items-center justify-between border-b border-slate-100 shrink-0">
+        <div className="px-7 sm:px-10 py-5 flex items-center justify-between border-b border-[#E8ECE9] shrink-0">
           <div className="flex items-center gap-3.5">
-            <div className="w-9 h-9 rounded-2xl bg-coral-50 border border-coral-100/80 text-[#E07A5F] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-2xl bg-[#42685B]/10 border border-[#B8C9BD]/60 text-[#42685B] flex items-center justify-center">
               <ShoppingBag className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h2 className="text-base sm:text-lg font-semibold text-slate-800">
+                <h2 className="text-base sm:text-lg font-semibold text-[#303C36]">
                   {isEditing
                     ? `${editingProduct?.name}`
                     : 'New Product Recipe'}
                 </h2>
                 {editingProduct?.price_stale_flag && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 text-xs font-medium">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FDF3F0] text-[#C66746] border border-[#E8A184]/50 text-xs font-medium">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     <span>Cost updated</span>
                   </span>
                 )}
               </div>
-              <p className="text-xs font-normal text-slate-400">
+              <p className="text-xs font-normal text-[#63726A]">
                 Materials, time, and selling price
               </p>
             </div>
@@ -361,16 +361,16 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100/70 transition-colors"
+            className="p-2 rounded-full text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Breathable Split-View Body */}
+        {/* Breathable Split-View Body (1 col stacked on mobile, 12-col split on desktop) */}
         <form
           onSubmit={handleSubmit}
-          className="flex-1 overflow-y-auto px-7 sm:px-10 py-8 grid grid-cols-1 lg:grid-cols-12 gap-10"
+          className="flex-1 overflow-y-auto px-4 sm:px-10 py-5 sm:py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10"
         >
           {/* LEFT COLUMN: CLEAN LIST-ROW BILL OF MATERIALS (6 cols) */}
           <div className="lg:col-span-6 space-y-8">
@@ -384,7 +384,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
             {/* Product Name & Category (Full-Width Stacked Rows for Long Titles) */}
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-normal text-slate-400 mb-1.5">
+                <label className="block text-xs font-normal text-[#63726A] mb-1.5">
                   Product Name
                 </label>
                 <input
@@ -393,12 +393,12 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g., Floral Hardcover Spiral Planner A5 - 2026 Edition"
-                  className="w-full px-4 py-2.5 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none transition-all"
+                  className="w-full px-4 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-medium text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-normal text-slate-400 mb-1.5">
+                <label className="block text-xs font-normal text-[#63726A] mb-1.5">
                   Product Category
                 </label>
                 <CategoryCombobox
@@ -412,13 +412,13 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
 
             {/* SECTION 1: MATERIALS USED (Clean List Rows) */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#E8ECE9]">
                 <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-[#E07A5F]" />
-                  <h3 className="text-sm font-medium text-slate-800">
+                  <Layers className="w-4 h-4 text-[#E8A184]" />
+                  <h3 className="text-sm font-medium text-[#303C36]">
                     Materials Used
                   </h3>
-                  <span className="text-xs font-normal text-slate-400">
+                  <span className="text-xs font-normal text-[#63726A]">
                     {formatCurrency(liveSummary.total_materials_cost)}
                   </span>
                 </div>
@@ -427,19 +427,19 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                   type="button"
                   onClick={handleAddMaterialLine}
                   disabled={materialsCatalog.length === 0}
-                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-100/80 hover:bg-slate-200/60 disabled:opacity-40 text-slate-600 text-xs font-medium transition-all"
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#FAFBFA] border border-[#E8ECE9] hover:border-[#B8C9BD] disabled:opacity-40 text-[#303C36] text-xs font-medium transition-all"
                 >
-                  <Plus className="w-3 h-3 text-[#E07A5F]" />
+                  <Plus className="w-3 h-3 text-[#42685B]" />
                   <span>Add Material</span>
                 </button>
               </div>
 
               {materialLines.length === 0 ? (
-                <div className="py-5 text-center text-xs text-slate-400 font-normal">
+                <div className="py-5 text-center text-xs text-[#63726A] font-normal">
                   No materials added yet.
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-[#E8ECE9]">
                   {materialLines.map((line, index) => {
                     const mat = materialsCatalog.find(
                       (m) => m.id === line.material_id
@@ -462,7 +462,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-xs font-medium text-slate-700 focus:outline-none transition-all"
+                            className="w-full px-3 py-2 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-medium text-[#303C36] focus:outline-none transition-all"
                           >
                             {materialsCatalog.map((m) => (
                               <option key={m.id} value={m.id}>
@@ -487,15 +487,15 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none text-right transition-all"
+                            className="w-full px-3 py-2 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-medium text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none text-right transition-all"
                           />
-                          <span className="text-[11px] font-normal text-slate-400 shrink-0">
+                          <span className="text-[11px] font-normal text-[#63726A] shrink-0">
                             {mat?.purchase_unit || 'un'}
                           </span>
                         </div>
 
                         <div className="sm:col-span-2 text-right">
-                          <span className="text-xs font-medium text-slate-700">
+                          <span className="text-xs font-medium text-[#303C36]">
                             {formatCurrency(lineCost, true)}
                           </span>
                         </div>
@@ -504,7 +504,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleRemoveMaterialLine(index)}
-                            className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg p-1 transition-colors"
+                            className="text-[#63726A] hover:text-rose-500 hover:bg-rose-50 rounded-lg p-1 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -518,13 +518,13 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
 
             {/* SECTION 2: PACKAGING USED (Clean List Rows) */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#E8ECE9]">
                 <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[#E07A5F]" />
-                  <h3 className="text-sm font-medium text-slate-800">
+                  <Package className="w-4 h-4 text-[#B8C9BD]" />
+                  <h3 className="text-sm font-medium text-[#303C36]">
                     Packaging Used
                   </h3>
-                  <span className="text-xs font-normal text-slate-400">
+                  <span className="text-xs font-normal text-[#63726A]">
                     {formatCurrency(liveSummary.total_packaging_cost)}
                   </span>
                 </div>
@@ -533,19 +533,19 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                   type="button"
                   onClick={handleAddPackagingLine}
                   disabled={packagingCatalog.length === 0}
-                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-100/80 hover:bg-slate-200/60 disabled:opacity-40 text-slate-600 text-xs font-medium transition-all"
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#FAFBFA] border border-[#E8ECE9] hover:border-[#B8C9BD] disabled:opacity-40 text-[#303C36] text-xs font-medium transition-all"
                 >
-                  <Plus className="w-3 h-3 text-[#E07A5F]" />
+                  <Plus className="w-3 h-3 text-[#42685B]" />
                   <span>Add Packaging</span>
                 </button>
               </div>
 
               {packagingLines.length === 0 ? (
-                <div className="py-5 text-center text-xs text-slate-400 font-normal">
+                <div className="py-5 text-center text-xs text-[#63726A] font-normal">
                   No packaging items added yet.
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-[#E8ECE9]">
                   {packagingLines.map((line, index) => {
                     const pkg = packagingCatalog.find(
                       (p) => p.id === line.packaging_id
@@ -568,7 +568,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-xs font-medium text-slate-700 focus:outline-none transition-all"
+                            className="w-full px-3 py-2 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-medium text-[#303C36] focus:outline-none transition-all"
                           >
                             {packagingCatalog.map((p) => (
                               <option key={p.id} value={p.id}>
@@ -593,15 +593,15 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none text-right transition-all"
+                            className="w-full px-3 py-2 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-medium text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none text-right transition-all"
                           />
-                          <span className="text-[11px] font-normal text-slate-400 shrink-0">
+                          <span className="text-[11px] font-normal text-[#63726A] shrink-0">
                             {pkg?.purchase_unit || 'un'}
                           </span>
                         </div>
 
                         <div className="sm:col-span-2 text-right">
-                          <span className="text-xs font-medium text-slate-700">
+                          <span className="text-xs font-medium text-[#303C36]">
                             {formatCurrency(lineCost, true)}
                           </span>
                         </div>
@@ -610,7 +610,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleRemovePackagingLine(index)}
-                            className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg p-1 transition-colors"
+                            className="text-[#63726A] hover:text-rose-500 hover:bg-rose-50 rounded-lg p-1 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -624,13 +624,13 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
 
             {/* SECTION 3: LABOR TIME (Clean List Rows) */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#E8ECE9]">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-[#E07A5F]" />
-                  <h3 className="text-sm font-medium text-slate-800">
+                  <Clock className="w-4 h-4 text-[#42685B]" />
+                  <h3 className="text-sm font-medium text-[#303C36]">
                     Labor Time
                   </h3>
-                  <span className="text-xs font-normal text-slate-400">
+                  <span className="text-xs font-normal text-[#63726A]">
                     {formatCurrency(liveSummary.total_labor_cost)}
                   </span>
                 </div>
@@ -639,19 +639,19 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                   type="button"
                   onClick={handleAddLaborLine}
                   disabled={laborCatalog.length === 0}
-                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-100/80 hover:bg-slate-200/60 disabled:opacity-40 text-slate-600 text-xs font-medium transition-all"
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#FAFBFA] border border-[#E8ECE9] hover:border-[#B8C9BD] disabled:opacity-40 text-[#303C36] text-xs font-medium transition-all"
                 >
-                  <Plus className="w-3 h-3 text-[#E07A5F]" />
+                  <Plus className="w-3 h-3 text-[#42685B]" />
                   <span>Add Labor Time</span>
                 </button>
               </div>
 
               {laborLines.length === 0 ? (
-                <div className="py-5 text-center text-xs text-slate-400 font-normal">
+                <div className="py-5 text-center text-xs text-[#63726A] font-normal">
                   No labor steps added yet.
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-[#E8ECE9]">
                   {laborLines.map((line, index) => {
                     const lab = laborCatalog.find((l) => l.id === line.labor_id);
                     const mins = parseFloat(line.minutes_spent) || 0;
@@ -672,7 +672,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-xs font-medium text-slate-700 focus:outline-none transition-all"
+                            className="w-full px-3 py-2 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-medium text-[#303C36] focus:outline-none transition-all"
                           >
                             {laborCatalog.map((l) => (
                               <option key={l.id} value={l.id}>
@@ -696,15 +696,15 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 bg-slate-50/70 border border-transparent focus:border-slate-300 focus:bg-white rounded-2xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none text-right transition-all"
+                            className="w-full px-3 py-2 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-medium text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none text-right transition-all"
                           />
-                          <span className="text-[11px] font-normal text-slate-400 shrink-0">
+                          <span className="text-[11px] font-normal text-[#63726A] shrink-0">
                             min
                           </span>
                         </div>
 
                         <div className="sm:col-span-2 text-right">
-                          <span className="text-xs font-medium text-slate-700">
+                          <span className="text-xs font-medium text-[#303C36]">
                             {formatCurrency(lineCost)}
                           </span>
                         </div>
@@ -713,7 +713,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleRemoveLaborLine(index)}
-                            className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg p-1 transition-colors"
+                            className="text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] rounded-lg p-1 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -726,14 +726,14 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
             </div>
           </div>
 
-          {/* RIGHT COLUMN: FLOATING LIVE PREVIEW & PRICING SIMULATOR (6 cols) */}
+          {/* RIGHT COLUMN: PRICING PIPELINE & TARGET PRICE SUMMARY CARD (6 cols) */}
           <div className="lg:col-span-6">
-            <div className="bg-[#F4F7FB]/70 rounded-3xl p-6 border border-slate-100 space-y-6">
+            <div className="bg-[#FAFBFA] rounded-3xl p-4 sm:p-6 border border-[#E8ECE9] space-y-5">
               {/* Active Rule Selector (Select-Only) */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-[#E07A5F]" />
-                  <span className="text-sm font-medium text-slate-800">
+                  <Sliders className="w-4 h-4 text-[#42685B]" />
+                  <span className="text-sm font-medium text-[#303C36]">
                     Pricing Rule
                   </span>
                 </div>
@@ -741,7 +741,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 <select
                   value={activeRule?.id || ''}
                   onChange={(e) => setSelectedRuleId(e.target.value)}
-                  className="px-3.5 py-1.5 bg-white border border-slate-200/60 rounded-full text-xs font-medium text-slate-700 focus:outline-none shadow-2xs"
+                  className="px-3.5 py-2 sm:py-1.5 bg-white border border-[#E8ECE9] rounded-full text-xs font-medium text-[#303C36] focus:outline-none shadow-2xs"
                 >
                   {pricingRules.map((rule) => (
                     <option key={rule.id} value={rule.id}>
@@ -751,59 +751,11 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 </select>
               </div>
 
-              {/* LUMINOUS HERO PRICE CARD */}
-              <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 space-y-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#E07A5F]">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Suggested Price ({activeRule?.name})</span>
-                    </span>
-                    <div className="text-3xl sm:text-4xl font-semibold text-slate-800 tracking-tight mt-1">
-                      {formatCurrency(pipelineEvaluation.suggestedRetailPrice)}
-                    </div>
-                  </div>
-
-                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-medium">
-                    +{pipelineEvaluation.netMarginPercent.toFixed(0)}% margin
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100 text-xs">
-                  <div>
-                    <span className="text-slate-400 font-normal block">
-                      Cost to Make
-                    </span>
-                    <span className="text-sm font-semibold text-slate-700 mt-0.5 block">
-                      {formatCurrency(pipelineEvaluation.totalProductionCost)}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="text-slate-400 font-normal block">
-                      Your Profit
-                    </span>
-                    <span className="text-sm font-semibold text-emerald-600 mt-0.5 block">
-                      {formatCurrency(pipelineEvaluation.netProfit)}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="text-slate-400 font-normal block">
-                      Fees
-                    </span>
-                    <span className="text-sm font-semibold text-indigo-600 mt-0.5 block">
-                      {formatCurrency(pipelineEvaluation.platformFeesTotal)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
               {/* Read-Only Informative Price Steps Pipeline */}
-              <div className="bg-white rounded-2xl p-4 border border-slate-100 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-normal text-slate-400">
-                    Price Steps
+              <div className="bg-white rounded-2xl p-4 border border-[#E8ECE9] space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-normal text-[#63726A]">
+                    Pricing Pipeline (Price Steps)
                   </span>
                   {onManageRules && (
                     <button
@@ -812,7 +764,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                         onClose();
                         onManageRules();
                       }}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-[#E07A5F] hover:text-[#c9674d] transition-colors"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[#42685B] hover:text-[#36544a] transition-colors"
                     >
                       <span>Manage rules in Pricing Rules tab</span>
                       <ArrowUpRight className="w-3.5 h-3.5" />
@@ -823,23 +775,36 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 {/* Visual Formula Breadcrumb */}
                 {activeRule && (
                   <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                    {activeRule.blocks.map((block, idx) => (
-                      <React.Fragment key={block.id}>
-                        <span className="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-full font-medium">
-                          {formatBlockPillLabel(block)}
-                        </span>
-                        {idx < activeRule.blocks.length - 1 && (
-                          <span className="text-slate-400 font-normal text-xs px-0.5">
-                            +
+                    {activeRule.blocks.map((block, idx) => {
+                      const isMarginBlock =
+                        block.type === 'PERCENT_MODIFIER' &&
+                        block.role !== 'FEE' &&
+                        !block.label.toLowerCase().includes('fee') &&
+                        !block.label.toLowerCase().includes('commission');
+                      return (
+                        <React.Fragment key={block.id}>
+                          <span
+                            className={
+                              isMarginBlock
+                                ? 'bg-[#FDF3F0] border border-[#E8A184]/50 text-[#C66746] text-xs px-2.5 py-1 rounded-full font-medium'
+                                : 'bg-[#FAFBFA] border border-[#E8ECE9] text-[#303C36] text-xs px-2.5 py-1 rounded-full font-medium'
+                            }
+                          >
+                            {formatBlockPillLabel(block)}
                           </span>
-                        )}
-                      </React.Fragment>
-                    ))}
+                          {idx < activeRule.blocks.length - 1 && (
+                            <span className="text-[#63726A] font-normal text-xs px-0.5">
+                              +
+                            </span>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </div>
                 )}
 
                 {/* Read-Only Step Breakdown */}
-                <div className="divide-y divide-slate-100 pt-1">
+                <div className="divide-y divide-[#E8ECE9] pt-1">
                   {pipelineEvaluation.steps.map((step, idx) => {
                     const isDiscount = step.block.type === 'DISCOUNT';
                     const isBase =
@@ -852,10 +817,10 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                         className="py-2 flex items-center justify-between text-xs"
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="w-4 h-4 rounded-full bg-slate-100 text-slate-500 text-[10px] font-medium flex items-center justify-center shrink-0">
+                          <span className="w-4 h-4 rounded-full bg-[#FAFBFA] border border-[#E8ECE9] text-[#63726A] text-[10px] font-medium flex items-center justify-center shrink-0">
                             {idx + 1}
                           </span>
-                          <span className="text-slate-700 font-normal truncate">
+                          <span className="text-[#303C36] font-normal truncate">
                             {step.block.label}
                           </span>
                         </div>
@@ -865,14 +830,14 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                               isDiscount
                                 ? 'text-rose-600'
                                 : isBase
-                                ? 'text-slate-600'
-                                : 'text-emerald-600'
+                                ? 'text-[#63726A]'
+                                : 'text-[#C66746]'
                             }`}
                           >
                             {step.deltaAmount >= 0 ? '+' : ''}
                             {formatCurrency(step.deltaAmount)}
                           </span>
-                          <span className="text-[11px] font-normal text-slate-400 w-16 text-right">
+                          <span className="text-[11px] font-normal text-[#63726A] w-16 text-right">
                             {formatCurrency(step.runningSubtotal)}
                           </span>
                         </div>
@@ -882,15 +847,63 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 </div>
               </div>
 
+              {/* TARGET PRICE SUMMARY CARD (Luminous Hero Price Card) */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#E8ECE9] space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#63726A]">
+                      <Sparkles className="w-3.5 h-3.5 text-[#E8A184]" />
+                      <span>Suggested Price ({activeRule?.name})</span>
+                    </span>
+                    <div className="text-3xl sm:text-4xl font-semibold text-[#42685B] tracking-tight mt-1">
+                      {formatCurrency(pipelineEvaluation.suggestedRetailPrice)}
+                    </div>
+                  </div>
+
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#FDF3F0] text-[#C66746] border border-[#E8A184]/50 text-xs font-semibold shrink-0">
+                    +{pipelineEvaluation.netMarginPercent.toFixed(0)}% margin
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-[#E8ECE9] text-xs">
+                  <div>
+                    <span className="text-[#63726A] font-normal block">
+                      Cost to Make
+                    </span>
+                    <span className="text-sm font-semibold text-[#303C36] mt-0.5 block">
+                      {formatCurrency(pipelineEvaluation.totalProductionCost)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[#63726A] font-normal block">
+                      Your Profit
+                    </span>
+                    <span className="text-sm font-semibold text-[#C66746] mt-0.5 block">
+                      {formatCurrency(pipelineEvaluation.netProfit)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[#63726A] font-normal block">
+                      Fees
+                    </span>
+                    <span className="text-sm font-semibold text-[#42685B] mt-0.5 block">
+                      {formatCurrency(pipelineEvaluation.platformFeesTotal)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {/* Lightweight Batch / Tier Table */}
-              <div className="bg-white rounded-2xl p-4 border border-slate-100 space-y-2">
-                <span className="text-xs font-normal text-slate-400 block px-1">
+              <div className="bg-white rounded-2xl p-4 border border-[#E8ECE9] space-y-2">
+                <span className="text-xs font-normal text-[#63726A] block px-1">
                   Quantity Discounts
                 </span>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-slate-100 text-slate-400 font-normal">
+                      <tr className="border-b border-[#E8ECE9] text-[#63726A] font-normal">
                         <th className="py-2 px-2.5 font-normal">Quantity</th>
                         <th className="py-2 px-2.5 font-normal">Unit Price</th>
                         <th className="py-2 px-2.5 font-normal">Total</th>
@@ -899,21 +912,21 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-[#E8ECE9]">
                       {batchTiers.map((tier) => (
                         <tr key={tier.qty}>
-                          <td className="py-2 px-2.5 font-medium text-slate-700">
+                          <td className="py-2 px-2.5 font-medium text-[#303C36]">
                             {tier.label}
                           </td>
-                          <td className="py-2 px-2.5 font-medium text-slate-800">
+                          <td className="py-2 px-2.5 font-medium text-[#303C36]">
                             {formatCurrency(tier.unitPrice)}
                           </td>
-                          <td className="py-2 px-2.5 font-normal text-slate-500">
+                          <td className="py-2 px-2.5 font-normal text-[#63726A]">
                             {formatCurrency(tier.totalRevenue)}
                           </td>
-                          <td className="py-2 px-2.5 text-right font-medium text-emerald-600">
+                          <td className="py-2 px-2.5 text-right font-medium text-[#42685B]">
                             {formatCurrency(tier.totalProfit)}{' '}
-                            <span className="text-[11px] font-normal text-slate-400">
+                            <span className="text-[11px] font-normal text-[#63726A]">
                               ({tier.marginPercent.toFixed(0)}%)
                             </span>
                           </td>
@@ -929,15 +942,15 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-full text-xs font-normal text-slate-500 hover:text-slate-800 hover:bg-white transition-colors"
+                  className="px-4 py-2 rounded-full text-xs font-normal text-[#63726A] hover:text-[#303C36] hover:bg-white transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs sm:text-sm px-6 py-2.5 rounded-full shadow-xs transition-all"
+                  className="inline-flex items-center gap-1.5 bg-[#42685B] hover:bg-[#36544a] text-white font-medium text-xs sm:text-sm px-6 py-2.5 rounded-full shadow-xs transition-all"
                 >
-                  <Check className="w-3.5 h-3.5 text-[#E07A5F]" />
+                  <Check className="w-3.5 h-3.5 text-[#E8A184]" />
                   <span>
                     {isEditing ? 'Save Recipe' : 'Create Product'}
                   </span>
