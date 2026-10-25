@@ -128,7 +128,7 @@ export type PercentTarget =
   | 'PREVIOUS_BLOCK'
   | 'BASE_MATERIALS';
 
-export type ModifierRole = 'MARGIN' | 'FEE' | 'OVERHEAD' | 'DISCOUNT';
+export type ModifierRole = 'MARKUP' | 'MARGIN' | 'FEE' | 'OVERHEAD' | 'DISCOUNT';
 
 export interface PricingBlock {
   id: string;
@@ -136,8 +136,8 @@ export interface PricingBlock {
   label: string;
   value?: number; // percentage or dollar value for modifiers
   target?: PercentTarget; // for PERCENT_MODIFIER or percent DISCOUNT
-  is_percent?: boolean; // for DISCOUNT
-  role?: ModifierRole; // distinguishes Profit Margin vs Platform Fee
+  is_percent?: boolean; // for DISCOUNT and FEE (true = %, false = $)
+  role?: ModifierRole; // distinguishes Markup vs Platform Fee vs Extra Overhead
 }
 
 export interface PricingRule {
@@ -161,9 +161,17 @@ export interface PipelineEvaluationResult {
   totalLaborCost: number;
   totalPackagingCost: number;
   totalProductionCost: number;
+  extraCostsTotal: number;
+  directCostsTotal: number;
+  markupTotal: number;
+  subtotalBeforePercentFees: number;
+  percentageFeesRate: number;
+  percentageFeesTotal: number;
+  fixedFeesTotal: number;
   suggestedRetailPrice: number;
   platformFeesTotal: number;
+  netRevenue: number;
   discountsTotal: number;
   netProfit: number;
-  netMarginPercent: number; // (netProfit / suggestedRetailPrice) * 100
+  netMarginPercent: number; // (netRevenue - directCostsTotal) / suggestedRetailPrice * 100
 }

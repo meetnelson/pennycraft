@@ -11,7 +11,12 @@ import {
   PercentTarget,
   PricingBlock,
 } from '../types/pricing';
-import { formatCurrency, generateId } from '../utils/calculations';
+import {
+  formatCurrency,
+  generateId,
+  isFeeBlock,
+  isPercentFeeBlock,
+} from '../utils/calculations';
 
 interface RulePipelineStackProps {
   steps: EvaluatedBlockStep[];
@@ -70,25 +75,35 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
   };
 
   const addModifierBlock = (
-    preset: 'MARGIN' | 'FEE' | 'FIXED_ADD' | 'DISCOUNT'
+    preset: 'MARKUP' | 'FEE_PERCENT' | 'FEE_FIXED' | 'FIXED_ADD' | 'DISCOUNT'
   ) => {
     let newBlock: PricingBlock;
-    if (preset === 'MARGIN') {
+    if (preset === 'MARKUP') {
       newBlock = {
         id: generateId('blk'),
         type: 'PERCENT_MODIFIER',
-        label: 'Profit Margin',
+        label: 'Markup %',
         value: 50,
         target: 'RUNNING_SUBTOTAL',
-        role: 'MARGIN',
+        role: 'MARKUP',
       };
-    } else if (preset === 'FEE') {
+    } else if (preset === 'FEE_PERCENT') {
       newBlock = {
         id: generateId('blk'),
         type: 'PERCENT_MODIFIER',
-        label: 'Platform Fee (Etsy)',
-        value: 6.5,
+        label: 'Marketplace Fee (%)',
+        value: 10,
+        is_percent: true,
         target: 'RUNNING_SUBTOTAL',
+        role: 'FEE',
+      };
+    } else if (preset === 'FEE_FIXED') {
+      newBlock = {
+        id: generateId('blk'),
+        type: 'FIXED_ADD',
+        label: 'Listing Fee ($)',
+        value: 0.2,
+        is_percent: false,
         role: 'FEE',
       };
     } else if (preset === 'FIXED_ADD') {
@@ -129,28 +144,26 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
         badgeClass: 'bg-[#F8F9FA] border border-slate-200 text-[#64748B]',
       };
     }
+    if (isFeeBlock(block)) {
+      const isPct = isPercentFeeBlock(block);
+      return {
+        cardClass: 'bg-white border-slate-200 border-l-[#2A8C82]',
+        dotClass: 'bg-[#2A8C82]',
+        labelColor: 'text-[#2D3134]',
+        amountColor: 'text-[#2A8C82]',
+        badgeText: isPct ? 'Fee %' : 'Fee $',
+        badgeClass: 'bg-[#2A8C82]/10 text-[#2A8C82] border border-[#2A8C82]/25',
+      };
+    }
     if (block.type === 'PERCENT_MODIFIER') {
-      const isFee =
-        block.role === 'FEE' ||
-        block.label.toLowerCase().includes('fee') ||
-        block.label.toLowerCase().includes('commission');
-      if (isFee) {
-        return {
-          cardClass: 'bg-white border-slate-200 border-l-[#2A8C82]',
-          dotClass: 'bg-[#2A8C82]',
-          labelColor: 'text-[#2D3134]',
-          amountColor: 'text-[#2A8C82]',
-          badgeText: 'Fee',
-          badgeClass: 'bg-[#2A8C82]/10 text-[#2A8C82]',
-        };
-      }
       return {
         cardClass: 'bg-white border-slate-200 border-l-[#E78358]',
         dotClass: 'bg-[#E78358]',
         labelColor: 'text-[#2D3134]',
         amountColor: 'text-[#E78358]',
-        badgeText: 'Margin',
-        badgeClass: 'bg-[#E78358]/10 text-[#E78358] border border-[#E78358]/30',
+        badgeText: 'Markup',
+        badgeClass:
+          'bg-[#E78358]/10 text-[#E78358] border border-[#E78358]/30',
       };
     }
     if (block.type === 'FIXED_ADD') {
@@ -159,7 +172,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
         dotClass: 'bg-[#F4B266]',
         labelColor: 'text-[#2D3134]',
         amountColor: 'text-[#2A8C82]',
-        badgeText: 'Extra',
+        badgeText: 'Extra $',
         badgeClass: 'bg-[#F4B266]/20 text-[#2D3134]',
       };
     }
@@ -180,6 +193,9 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
         {steps.map((step, index) => {
           const { block, deltaAmount, runningSubtotal } = step;
           const isBase = isBaseBlock(block.type);
+          const isFee = isFeeBlock(block);
+          const isPctFee = isPercentFeeBlock(block);
+          const isMarkup = block.type === 'PERCENT_MODIFIER' && !isFee;
           const meta = getBlockVisualMeta(block);
 
           return (
@@ -228,15 +244,30 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                         <input
                           type="text"
                           value={block.label}
+                          aria-label={
+                            isMarkup
+                              ? 'Markup %'
+                              : isFee
+                              ? 'Marketplace Fee label'
+                              : 'Step label'
+                          }
+                          placeholder={
+                            isMarkup
+                              ? 'Markup %'
+                              : isFee
+                              ? 'e.g., Platform Fee, Listing Fee'
+                              : 'Step label'
+                          }
                           onChange={(e) =>
                             updateBlock(index, { label: e.target.value })
                           }
-                          className={`text-xs sm:text-sm font-medium ${meta.labelColor} bg-white rounded-lg px-2 py-1 border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none min-w-[110px] max-w-[175px] transition-all`}
+                          className={`text-xs sm:text-sm font-medium ${meta.labelColor} bg-white rounded-lg px-2.5 py-1 border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none min-w-[115px] max-w-[180px] transition-all`}
                         />
 
                         {/* Value Input Pill */}
                         <div className="inline-flex items-center bg-white border border-slate-200 focus-within:border-[#2A8C82] focus-within:ring-1 focus-within:ring-[#2A8C82] rounded-lg px-2.5 py-1 transition-all">
-                          {block.type === 'FIXED_ADD' && (
+                          {((block.type === 'FIXED_ADD' && !isFee) ||
+                            (isFee && !isPctFee)) && (
                             <span className="text-[11px] text-[#64748B] mr-0.5">
                               +$
                             </span>
@@ -251,8 +282,12 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                               -
                             </span>
                           )}
-                          {block.type === 'PERCENT_MODIFIER' && (
-                            <span className="text-[11px] text-[#E78358] mr-0.5">
+                          {(isMarkup || (isFee && isPctFee)) && (
+                            <span
+                              className={`text-[11px] mr-0.5 ${
+                                isFee ? 'text-[#2A8C82]' : 'text-[#E78358]'
+                              }`}
+                            >
                               +
                             </span>
                           )}
@@ -260,21 +295,68 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                             type="number"
                             step="any"
                             min="0"
+                            aria-label={
+                              isMarkup ? 'Markup %' : `${block.label} value`
+                            }
                             value={block.value ?? 0}
                             onChange={(e) =>
                               updateBlock(index, {
                                 value: parseFloat(e.target.value) || 0,
                               })
                             }
-                            className="w-11 bg-white text-xs font-medium text-[#2D3134] outline-none text-right"
+                            className="w-12 bg-white text-xs font-medium text-[#2D3134] outline-none text-right"
                           />
-                          {(block.type === 'PERCENT_MODIFIER' ||
-                            (block.type === 'DISCOUNT' && block.is_percent)) && (
+                          {(isMarkup ||
+                            (isFee && isPctFee) ||
+                            (block.type === 'DISCOUNT' &&
+                              block.is_percent)) && (
                             <span className="text-[11px] text-[#64748B] ml-0.5">
                               %
                             </span>
                           )}
                         </div>
+
+                        {/* Fee Type Toggle (% vs $) */}
+                        {isFee && (
+                          <div className="inline-flex items-center bg-[#F8F9FA] p-0.5 rounded-lg border border-slate-200">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateBlock(index, {
+                                  type: 'PERCENT_MODIFIER',
+                                  role: 'FEE',
+                                  is_percent: true,
+                                })
+                              }
+                              title="Percentage Fee (%) — Grossed up on Final Retail Price"
+                              className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
+                                isPctFee
+                                  ? 'bg-[#2A8C82] text-white shadow-2xs'
+                                  : 'text-[#64748B] hover:text-[#2D3134]'
+                              }`}
+                            >
+                              %
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateBlock(index, {
+                                  type: 'FIXED_ADD',
+                                  role: 'FEE',
+                                  is_percent: false,
+                                })
+                              }
+                              title="Fixed Fee ($) — e.g., $0.20 listing fee"
+                              className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
+                                !isPctFee
+                                  ? 'bg-[#2A8C82] text-white shadow-2xs'
+                                  : 'text-[#64748B] hover:text-[#2D3134]'
+                              }`}
+                            >
+                              $
+                            </button>
+                          </div>
+                        )}
 
                         {/* Discount Type Switch (% vs $) */}
                         {block.type === 'DISCOUNT' && (
@@ -291,8 +373,8 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                           </button>
                         )}
 
-                        {/* Target Selector for Percent Modifiers */}
-                        {(block.type === 'PERCENT_MODIFIER' ||
+                        {/* Target Selector for Markup % or Percent Discount */}
+                        {(isMarkup ||
                           (block.type === 'DISCOUNT' && block.is_percent)) && (
                           <select
                             value={block.target || 'RUNNING_SUBTOTAL'}
@@ -314,6 +396,33 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                             </option>
                           </select>
                         )}
+
+                        {/* Gross-Up Indicator for Percentage Marketplace Fees */}
+                        {isFee && isPctFee && (
+                          <span
+                            title="Grossed up using C / (1 - F_pct) so the marketplace cut is covered from the final retail price"
+                            className="text-[11px] font-normal text-[#2A8C82] bg-[#2A8C82]/10 border border-[#2A8C82]/25 px-2 py-0.5 rounded-full"
+                          >
+                            of final retail (gross-up)
+                          </span>
+                        )}
+
+                        {/* Fixed Fee Badge */}
+                        {isFee && !isPctFee && (
+                          <span className="text-[11px] font-normal text-[#2A8C82] bg-[#2A8C82]/10 border border-[#2A8C82]/25 px-2 py-0.5 rounded-full">
+                            fixed fee
+                          </span>
+                        )}
+
+                        {/* Operational Multiplier Badge for Markup % */}
+                        {isMarkup && (
+                          <span
+                            title="Markup is applied as an operational multiplier on accumulated cost"
+                            className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#E78358]/10 text-[#E78358] border border-[#E78358]/30"
+                          >
+                            Markup %
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -322,7 +431,9 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                 {/* Right: Evaluated Delta, Running Subtotal & Subtle Ghost Controls */}
                 <div className="flex items-center gap-2.5 shrink-0">
                   <div className="text-right">
-                    <span className={`text-xs sm:text-sm font-medium ${meta.amountColor}`}>
+                    <span
+                      className={`text-xs sm:text-sm font-medium ${meta.amountColor}`}
+                    >
                       {deltaAmount >= 0 ? '+' : '-'}
                       {formatCurrency(Math.abs(deltaAmount))}
                     </span>
@@ -376,17 +487,19 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
-            onClick={() => addModifierBlock('MARGIN')}
+            onClick={() => addModifierBlock('MARKUP')}
+            title="Add operational Markup % multiplier on accumulated cost"
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#E78358] bg-[#E78358]/10 border border-[#E78358]/30 hover:bg-[#E78358]/15 transition-colors"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#E78358]" />
             <Plus className="w-3 h-3" />
-            <span>Margin %</span>
+            <span>Markup %</span>
           </button>
 
           <button
             type="button"
-            onClick={() => addModifierBlock('FEE')}
+            onClick={() => addModifierBlock('FEE_PERCENT')}
+            title="Add percentage marketplace fee (grossed up on final retail)"
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#2A8C82] bg-[#2A8C82]/10 border border-[#2A8C82]/30 hover:bg-[#2A8C82]/15 transition-colors"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#2A8C82]" />
@@ -396,7 +509,19 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
 
           <button
             type="button"
+            onClick={() => addModifierBlock('FEE_FIXED')}
+            title="Add fixed marketplace fee (e.g., $0.20 listing fee)"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#2A8C82] bg-white border border-[#2A8C82]/30 hover:bg-[#2A8C82]/10 transition-colors"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2A8C82]" />
+            <Plus className="w-3 h-3" />
+            <span>Fee $</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => addModifierBlock('FIXED_ADD')}
+            title="Add extra fixed production/overhead cost ($)"
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#2D3134] bg-[#F4B266]/20 border border-[#F4B266]/40 hover:bg-[#F4B266]/30 transition-colors"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#F4B266]" />

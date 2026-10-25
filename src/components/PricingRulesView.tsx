@@ -13,10 +13,13 @@ import {
   ProductItem,
 } from '../types/pricing';
 import {
+  applyTargetMarginToBlocks,
   computeBatchTiers,
   evaluatePricingPipeline,
+  formatBlockPillLabel,
   formatCurrency,
   generateId,
+  isFeeBlock,
 } from '../utils/calculations';
 import { RulePipelineStack } from './RulePipelineStack';
 
@@ -159,28 +162,18 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
 
   const batchTiers = useMemo(() => computeBatchTiers(evalResult), [evalResult]);
 
-  const formatBlockPillLabel = (block: PricingBlock): string => {
-    if (block.type === 'BASE_MATERIALS') return 'Materials';
-    if (block.type === 'BASE_LABOR') return 'Labor';
-    if (block.type === 'BASE_PACKAGING') return 'Packaging';
-    if (block.type === 'PERCENT_MODIFIER') {
-      const val = block.value ?? 0;
-      const cleanLabel = block.label
-        .replace(/^Platform Fee\s*\((.*)\)$/i, '$1 Fee')
-        .replace(/^Profit\s+/i, '')
-        .trim();
-      return `+${val}% ${cleanLabel || 'Margin'}`;
-    }
-    if (block.type === 'FIXED_ADD') {
-      return `+${formatCurrency(block.value ?? 0)} ${block.label}`;
-    }
-    if (block.type === 'DISCOUNT') {
-      const val = block.value ?? 0;
-      return block.is_percent
-        ? `-${val}% ${block.label}`
-        : `-${formatCurrency(val)} ${block.label}`;
-    }
-    return block.label;
+  const currentClampedMargin = useMemo(() => {
+    const rounded = Math.round(evalResult.netMarginPercent);
+    return Math.min(80, Math.max(10, isFinite(rounded) ? rounded : 30));
+  }, [evalResult.netMarginPercent]);
+
+  const handleTargetMarginSliderChange = (nextMarginPct: number) => {
+    const updatedBlocks = applyTargetMarginToBlocks(
+      draftBlocks,
+      sampleCosts,
+      nextMarginPct
+    );
+    setDraftBlocks(updatedBlocks);
   };
 
   const handleCreateNewRule = () => {
@@ -195,10 +188,10 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
           {
             id: generateId('blk'),
             type: 'PERCENT_MODIFIER',
-            label: 'Boutique Margin',
+            label: 'Markup %',
             value: 60,
             target: 'RUNNING_SUBTOTAL',
-            role: 'MARGIN',
+            role: 'MARKUP',
           },
         ],
       });
@@ -393,16 +386,13 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {draftBlocks.map((block, idx) => {
-                      const isMarginBlock =
-                        block.type === 'PERCENT_MODIFIER' &&
-                        block.role !== 'FEE' &&
-                        !block.label.toLowerCase().includes('fee') &&
-                        !block.label.toLowerCase().includes('commission');
+                      const isMarkupBlock =
+                        block.type === 'PERCENT_MODIFIER' && !isFeeBlock(block);
                       return (
                         <React.Fragment key={block.id}>
                           <span
                             className={
-                              isMarginBlock
+                              isMarkupBlock
                                 ? 'bg-[#E78358]/10 border border-[#E78358]/30 text-[#E78358] text-xs px-2.5 py-1 rounded-full font-medium'
                                 : 'bg-[#F8F9FA] border border-slate-200 text-[#2D3134] text-xs px-2.5 py-1 rounded-full font-medium'
                             }
@@ -428,7 +418,9 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
                     Price Steps
                   </h3>
                   <p className="text-xs font-normal text-[#64748B]">
-                    Calculated from top to bottom
+                    Markup % is applied as an operational multiplier on
+                    accumulated cost; Marketplace Fee % is grossed up on final
+                    retail price (`C / (1 - F_pct)`).
                   </p>
                 </div>
 
@@ -439,53 +431,142 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
               </div>
 
               <div className="space-y-6 pt-4 border-t border-slate-200">
-                {/* Target Price Hero Card */}
-                <div className="bg-[#F8F9FA] rounded-2xl p-6 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                  <div className="space-y-1.5">
-                    <div className="inline-flex items-center gap-1.5 text-xs font-normal text-[#64748B]">
-                      <Sparkles className="w-3.5 h-3.5 text-[#F4B266]" />
-                      <span>
-                        Suggested Price ({previewProduct?.name || 'Sample'})
+                {/* Interactive Target Profit Margin Slider (10% - 80%) */}
+                <div className="bg-[#F8F9FA] rounded-2xl p-5 border border-slate-200 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <label
+                        htmlFor="rule-target-margin-slider"
+                        className="text-xs font-semibold text-[#2D3134] block"
+                      >
+                        Target Profit Margin Slider
+                      </label>
+                      <span className="text-[11px] font-normal text-[#64748B]">
+                        Slide (10%–80%) to dynamically adjust Markup % for your
+                        desired net margin
                       </span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="text-3xl sm:text-4xl font-semibold text-[#2A8C82] tracking-tight">
-                        {formatCurrency(evalResult.suggestedRetailPrice)}
+                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#E78358]/10 border border-[#E78358]/30 text-[#E78358] text-xs font-semibold">
+                      Target: {currentClampedMargin}% Net Margin
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-medium text-[#64748B] w-8">
+                      10%
+                    </span>
+                    <input
+                      id="rule-target-margin-slider"
+                      type="range"
+                      min={10}
+                      max={80}
+                      step={1}
+                      value={currentClampedMargin}
+                      onChange={(e) =>
+                        handleTargetMarginSliderChange(
+                          parseInt(e.target.value, 10)
+                        )
+                      }
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#2A8C82]"
+                    />
+                    <span className="text-[11px] font-medium text-[#64748B] w-8 text-right">
+                      80%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Target Price & Gross-Up Marketplace Fee Breakdown Card */}
+                <div className="bg-[#F8F9FA] rounded-2xl p-6 border border-slate-200 space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1.5">
+                      <div className="inline-flex items-center gap-1.5 text-xs font-normal text-[#64748B]">
+                        <Sparkles className="w-3.5 h-3.5 text-[#F4B266]" />
+                        <span>
+                          Gross Final Retail Price (
+                          {previewProduct?.name || 'Sample'})
+                        </span>
                       </div>
-                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#E78358]/10 border border-[#E78358]/30 text-[#E78358] text-xs font-semibold">
-                        +{evalResult.netMarginPercent.toFixed(0)}% margin
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="text-3xl sm:text-4xl font-semibold text-[#2A8C82] tracking-tight">
+                          {formatCurrency(evalResult.suggestedRetailPrice)}
+                        </div>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#E78358]/10 border border-[#E78358]/30 text-[#E78358] text-xs font-semibold">
+                          {evalResult.netMarginPercent.toFixed(1)}% Net Margin
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-left sm:text-right">
+                      <span className="text-[11px] font-normal text-[#64748B] block">
+                        Subtotal Before % Fees (C)
                       </span>
+                      <span className="text-sm font-semibold text-[#2D3134]">
+                        {formatCurrency(evalResult.subtotalBeforePercentFees)}
+                      </span>
+                      {evalResult.percentageFeesRate > 0 && (
+                        <span className="block text-[11px] font-normal text-[#2A8C82]">
+                          Gross-up: C ÷ (1 −{' '}
+                          {(evalResult.percentageFeesRate * 100).toFixed(1)}%)
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-6 pt-4 sm:pt-0 border-t sm:border-t-0 border-slate-200">
+                  {/* Exact 4-Column Financial Breakdown */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-200">
                     <div>
                       <span className="block text-[11px] font-normal text-[#64748B]">
-                        Cost to Make
+                        Direct Costs
                       </span>
                       <span className="text-sm font-semibold text-[#2D3134] mt-0.5 block">
-                        {formatCurrency(evalResult.totalProductionCost)}
+                        {formatCurrency(evalResult.directCostsTotal)}
+                      </span>
+                      {evalResult.extraCostsTotal > 0 && (
+                        <span className="block text-[10px] font-normal text-[#64748B]">
+                          Includes {formatCurrency(evalResult.extraCostsTotal)}{' '}
+                          Extra $
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <span className="block text-[11px] font-normal text-[#64748B]">
+                        Deducted Marketplace Fees
+                      </span>
+                      <span className="text-sm font-semibold text-[#2A8C82] mt-0.5 block">
+                        -{formatCurrency(evalResult.platformFeesTotal)}
+                      </span>
+                      <span className="block text-[10px] font-normal text-[#64748B]">
+                        {formatCurrency(evalResult.percentageFeesTotal)} (
+                        {(evalResult.percentageFeesRate * 100).toFixed(1)}%) +{' '}
+                        {formatCurrency(evalResult.fixedFeesTotal)} fixed
                       </span>
                     </div>
 
                     <div>
                       <span className="block text-[11px] font-normal text-[#64748B]">
-                        Net Profit
+                        Net Revenue
+                      </span>
+                      <span className="text-sm font-semibold text-[#2D3134] mt-0.5 block">
+                        {formatCurrency(evalResult.netRevenue)}
+                      </span>
+                      <span className="block text-[10px] font-normal text-[#64748B]">
+                        Retail − Marketplace Fees
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="block text-[11px] font-normal text-[#64748B]">
+                        Net Profit &amp; Margin
                       </span>
                       <span className="text-sm font-semibold text-[#E78358] mt-0.5 block">
                         {formatCurrency(evalResult.netProfit)}{' '}
                         <span className="text-xs font-normal text-[#64748B]">
-                          ({evalResult.netMarginPercent.toFixed(0)}%)
+                          ({evalResult.netMarginPercent.toFixed(1)}%)
                         </span>
                       </span>
-                    </div>
-
-                    <div>
-                      <span className="block text-[11px] font-normal text-[#64748B]">
-                        Fees
-                      </span>
-                      <span className="text-sm font-semibold text-[#2A8C82] mt-0.5 block">
-                        {formatCurrency(evalResult.platformFeesTotal)}
+                      <span className="block text-[10px] font-normal text-[#64748B]">
+                        (Net Rev − Direct Costs) ÷ Retail
                       </span>
                     </div>
                   </div>

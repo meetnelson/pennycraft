@@ -17,15 +17,17 @@ import {
   LaborRateItem,
   MaterialItem,
   PackagingItem,
-  PricingBlock,
   PricingRule,
   ProductItem,
 } from '../types/pricing';
 import {
+  applyTargetMarginToBlocks,
   computeBatchTiers,
   computeProductBomTotals,
   evaluatePricingPipeline,
+  formatBlockPillLabel,
   formatCurrency,
+  isFeeBlock,
 } from '../utils/calculations';
 import { CategoryCombobox } from './CategoryCombobox';
 
@@ -81,6 +83,9 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
     { labor_id: string; minutes_spent: string }[]
   >([]);
   const [error, setError] = useState<string | null>(null);
+  const [customTargetMarginPercent, setCustomTargetMarginPercent] = useState<
+    number | null
+  >(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
@@ -119,6 +124,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
+    setCustomTargetMarginPercent(null);
     setShowDiscardConfirm(false);
     setPendingAction(null);
 
@@ -208,43 +214,38 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
     [pricingRules, selectedRuleId]
   );
 
+  const effectiveBlocks = useMemo(() => {
+    const baseBlocks = activeRule?.blocks || [];
+    if (customTargetMarginPercent === null) return baseBlocks;
+    return applyTargetMarginToBlocks(
+      baseBlocks,
+      {
+        materialsCost: liveSummary.total_materials_cost,
+        laborCost: liveSummary.total_labor_cost,
+        packagingCost: liveSummary.total_packaging_cost,
+      },
+      customTargetMarginPercent
+    );
+  }, [activeRule, customTargetMarginPercent, liveSummary]);
+
   const pipelineEvaluation = useMemo(() => {
-    const blocks = activeRule?.blocks || [];
-    return evaluatePricingPipeline(blocks, {
+    return evaluatePricingPipeline(effectiveBlocks, {
       materialsCost: liveSummary.total_materials_cost,
       laborCost: liveSummary.total_labor_cost,
       packagingCost: liveSummary.total_packaging_cost,
     });
-  }, [activeRule, liveSummary]);
+  }, [effectiveBlocks, liveSummary]);
+
+  const sliderMarginValue = useMemo(() => {
+    if (customTargetMarginPercent !== null) return customTargetMarginPercent;
+    const rounded = Math.round(pipelineEvaluation.netMarginPercent);
+    return Math.min(80, Math.max(10, isFinite(rounded) ? rounded : 30));
+  }, [customTargetMarginPercent, pipelineEvaluation.netMarginPercent]);
 
   const batchTiers = useMemo(
     () => computeBatchTiers(pipelineEvaluation),
     [pipelineEvaluation]
   );
-
-  const formatBlockPillLabel = (block: PricingBlock): string => {
-    if (block.type === 'BASE_MATERIALS') return 'Materials';
-    if (block.type === 'BASE_LABOR') return 'Labor';
-    if (block.type === 'BASE_PACKAGING') return 'Packaging';
-    if (block.type === 'PERCENT_MODIFIER') {
-      const val = block.value ?? 0;
-      const cleanLabel = block.label
-        .replace(/^Platform Fee\s*\((.*)\)$/i, '$1 Fee')
-        .replace(/^Profit\s+/i, '')
-        .trim();
-      return `+${val}% ${cleanLabel || 'Margin'}`;
-    }
-    if (block.type === 'FIXED_ADD') {
-      return `+${formatCurrency(block.value ?? 0)} ${block.label}`;
-    }
-    if (block.type === 'DISCOUNT') {
-      const val = block.value ?? 0;
-      return block.is_percent
-        ? `-${val}% ${block.label}`
-        : `-${formatCurrency(val)} ${block.label}`;
-    }
-    return block.label;
-  };
 
   if (!isOpen) return null;
 
@@ -815,7 +816,10 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
 
                 <select
                   value={activeRule?.id || ''}
-                  onChange={(e) => setSelectedRuleId(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedRuleId(e.target.value);
+                    setCustomTargetMarginPercent(null);
+                  }}
                   className="px-3.5 py-2 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-xl text-xs font-medium text-[#2D3134] shadow-xs transition-all"
                 >
                   {pricingRules.map((rule) => (
@@ -850,26 +854,23 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 </div>
 
                 {/* Visual Formula Breadcrumb */}
-                {activeRule && (
+                {effectiveBlocks.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                    {activeRule.blocks.map((block, idx) => {
-                      const isMarginBlock =
-                        block.type === 'PERCENT_MODIFIER' &&
-                        block.role !== 'FEE' &&
-                        !block.label.toLowerCase().includes('fee') &&
-                        !block.label.toLowerCase().includes('commission');
+                    {effectiveBlocks.map((block, idx) => {
+                      const isMarkupBlock =
+                        block.type === 'PERCENT_MODIFIER' && !isFeeBlock(block);
                       return (
                         <React.Fragment key={block.id}>
                           <span
                             className={
-                              isMarginBlock
+                              isMarkupBlock
                                 ? 'bg-[#E78358]/10 border border-[#E78358]/30 text-[#E78358] text-xs px-2.5 py-1 rounded-full font-medium'
                                 : 'bg-[#F8F9FA] border border-slate-200 text-[#2D3134] text-xs px-2.5 py-1 rounded-full font-medium'
                             }
                           >
                             {formatBlockPillLabel(block)}
                           </span>
-                          {idx < activeRule.blocks.length - 1 && (
+                          {idx < effectiveBlocks.length - 1 && (
                             <span className="text-[#64748B] font-normal text-xs px-0.5">
                               +
                             </span>
@@ -924,49 +925,144 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 </div>
               </div>
 
-              {/* TARGET PRICE SUMMARY CARD */}
+              {/* INTERACTIVE TARGET PROFIT MARGIN SLIDER (10% - 80%) */}
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <label
+                      htmlFor="product-target-margin-slider"
+                      className="text-xs font-semibold text-[#2D3134] block"
+                    >
+                      Target Profit Margin
+                    </label>
+                    <span className="text-[11px] font-normal text-[#64748B]">
+                      Dynamically adjusts Markup % to achieve your target net
+                      margin
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {customTargetMarginPercent !== null && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomTargetMarginPercent(null)}
+                        className="text-[11px] font-medium text-[#64748B] hover:text-[#2D3134] underline"
+                      >
+                        Reset to rule
+                      </button>
+                    )}
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#E78358]/10 text-[#E78358] border border-[#E78358]/30 text-xs font-semibold">
+                      {sliderMarginValue}% Net Margin
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] font-medium text-[#64748B] w-8">
+                    10%
+                  </span>
+                  <input
+                    id="product-target-margin-slider"
+                    type="range"
+                    min={10}
+                    max={80}
+                    step={1}
+                    value={sliderMarginValue}
+                    onChange={(e) =>
+                      setCustomTargetMarginPercent(
+                        parseInt(e.target.value, 10)
+                      )
+                    }
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#2A8C82]"
+                  />
+                  <span className="text-[11px] font-medium text-[#64748B] w-8 text-right">
+                    80%
+                  </span>
+                </div>
+              </div>
+
+              {/* TARGET PRICE & GROSS-UP MARKETPLACE FEE SUMMARY CARD */}
               <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200 space-y-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#64748B]">
                       <Sparkles className="w-3.5 h-3.5 text-[#F4B266]" />
-                      <span>Suggested Price ({activeRule?.name})</span>
+                      <span>
+                        Suggested Retail Price ({activeRule?.name})
+                      </span>
                     </span>
                     <div className="text-3xl sm:text-4xl font-bold text-[#2A8C82] tracking-tight mt-1">
                       {formatCurrency(pipelineEvaluation.suggestedRetailPrice)}
                     </div>
+                    {pipelineEvaluation.percentageFeesRate > 0 && (
+                      <span className="block text-[11px] font-normal text-[#64748B] mt-1">
+                        Gross-up: Subtotal{' '}
+                        {formatCurrency(
+                          pipelineEvaluation.subtotalBeforePercentFees
+                        )}{' '}
+                        ÷ (1 −{' '}
+                        {(pipelineEvaluation.percentageFeesRate * 100).toFixed(
+                          1
+                        )}
+                        %)
+                      </span>
+                    )}
                   </div>
 
                   <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#E78358]/10 text-[#E78358] border border-[#E78358]/30 text-xs font-semibold shrink-0">
-                    +{pipelineEvaluation.netMarginPercent.toFixed(0)}% margin
+                    {pipelineEvaluation.netMarginPercent.toFixed(1)}% margin
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-200 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-200 text-xs">
                   <div>
                     <span className="text-[#64748B] font-normal block">
-                      Cost to Make
+                      Direct Costs
                     </span>
                     <span className="text-sm font-semibold text-[#2D3134] mt-0.5 block">
-                      {formatCurrency(pipelineEvaluation.totalProductionCost)}
+                      {formatCurrency(pipelineEvaluation.directCostsTotal)}
                     </span>
+                    {pipelineEvaluation.extraCostsTotal > 0 && (
+                      <span className="text-[10px] font-normal text-[#64748B] block">
+                        +{formatCurrency(pipelineEvaluation.extraCostsTotal)}{' '}
+                        Extra $
+                      </span>
+                    )}
                   </div>
 
                   <div>
                     <span className="text-[#64748B] font-normal block">
-                      Your Profit
-                    </span>
-                    <span className="text-sm font-semibold text-[#E78358] mt-0.5 block">
-                      {formatCurrency(pipelineEvaluation.netProfit)}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="text-[#64748B] font-normal block">
-                      Fees
+                      Marketplace Fees
                     </span>
                     <span className="text-sm font-semibold text-[#2A8C82] mt-0.5 block">
-                      {formatCurrency(pipelineEvaluation.platformFeesTotal)}
+                      -{formatCurrency(pipelineEvaluation.platformFeesTotal)}
+                    </span>
+                    <span className="text-[10px] font-normal text-[#64748B] block">
+                      {formatCurrency(pipelineEvaluation.percentageFeesTotal)} (
+                      {(pipelineEvaluation.percentageFeesRate * 100).toFixed(1)}
+                      %) + {formatCurrency(pipelineEvaluation.fixedFeesTotal)}{' '}
+                      fixed
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[#64748B] font-normal block">
+                      Net Revenue
+                    </span>
+                    <span className="text-sm font-semibold text-[#2D3134] mt-0.5 block">
+                      {formatCurrency(pipelineEvaluation.netRevenue)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[#64748B] font-normal block">
+                      Net Profit
+                    </span>
+                    <span className="text-sm font-semibold text-[#E78358] mt-0.5 block">
+                      {formatCurrency(pipelineEvaluation.netProfit)}{' '}
+                      <span className="text-[11px] font-normal text-[#64748B]">
+                        ({pipelineEvaluation.netMarginPercent.toFixed(1)}%)
+                      </span>
                     </span>
                   </div>
                 </div>

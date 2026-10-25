@@ -158,6 +158,25 @@ function loadNormalizedInitialData() {
       r.description && legacyFormulaDescriptions.has(r.description.trim())
         ? ''
         : r.description,
+    blocks: (r.blocks || []).map((b) => {
+      const nextLabel =
+        b.label === 'Profit Margin'
+          ? 'Markup %'
+          : b.label === 'Boutique Margin'
+          ? 'Boutique Markup'
+          : b.label;
+      const nextRole = b.role === 'MARGIN' ? 'MARKUP' : b.role;
+      const nextIsPercent =
+        nextRole === 'FEE' && typeof b.is_percent !== 'boolean'
+          ? b.type !== 'FIXED_ADD'
+          : b.is_percent;
+      return {
+        ...b,
+        label: nextLabel,
+        role: nextRole,
+        is_percent: nextIsPercent,
+      };
+    }),
   }));
 
   const products: ProductItem[] = rawProducts.map((prod) => ({

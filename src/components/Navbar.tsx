@@ -100,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const renderDropdownMenu = () => (
-    <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-sm border border-slate-200 py-2 z-50">
+    <div className="absolute right-0 mt-2 min-w-[280px] bg-white rounded-2xl shadow-sm border border-slate-200 py-2 z-50 whitespace-normal">
       {userEmail ? (
         <div className="px-3.5 py-2 border-b border-slate-200">
           <p className="text-[11px] font-normal text-[#64748B]">Signed in as</p>
@@ -115,16 +115,17 @@ export const Navbar: React.FC<NavbarProps> = ({
       ) : (
         <div className="px-3.5 py-2.5 border-b border-slate-200">
           <p className="text-xs font-medium text-[#2D3134]">Local Studio</p>
-          <p className="text-[11px] font-normal text-[#64748B] mt-0.5">
-            Saved in this browser • Cloud: $1.99/mo or $18/yr
-          </p>
+          <div className="flex flex-col text-xs text-slate-500 leading-relaxed mt-0.5">
+            <span>Saved in this browser</span>
+            <span>Cloud: $1.99/mo or $18/yr</span>
+          </div>
           <button
             type="button"
             onClick={() => {
               setMenuOpen(false);
               onOpenAuthModal();
             }}
-            className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2A8C82] hover:bg-[#23736B] text-white text-xs font-medium transition-colors"
+            className="mt-2.5 w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2A8C82] hover:bg-[#23736B] text-white text-xs font-medium transition-colors"
           >
             <Cloud className="w-3.5 h-3.5 text-[#F4B266]" />
             <span>Upgrade to Cloud / Sign In</span>
