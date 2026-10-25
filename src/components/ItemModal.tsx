@@ -35,10 +35,14 @@ interface ItemModalProps {
   isOpen: boolean;
   initialEntityType: ModalEntityType;
   editingItem: MaterialItem | PackagingItem | LaborRateItem | null;
+  templateItem?: MaterialItem | PackagingItem | null;
+  existingMaterials?: MaterialItem[];
+  existingPackaging?: PackagingItem[];
   materialCategories: string[];
   packagingCategories: string[];
   onClose: () => void;
   onSwitchToCreateProduct?: () => void;
+  onOpenCategoryManager?: (scope: 'materials' | 'packaging') => void;
   onDirtyChange?: (isDirty: boolean) => void;
   onSaveMaterial: (
     data: {
@@ -76,10 +80,14 @@ export const ItemModal: React.FC<ItemModalProps> = ({
   isOpen,
   initialEntityType,
   editingItem,
+  templateItem = null,
+  existingMaterials = [],
+  existingPackaging = [],
   materialCategories,
   packagingCategories,
   onClose,
   onSwitchToCreateProduct,
+  onOpenCategoryManager,
   onDirtyChange,
   onSaveMaterial,
   onSavePackaging,
@@ -101,11 +109,25 @@ export const ItemModal: React.FC<ItemModalProps> = ({
   const [hourlyRate, setHourlyRate] = useState<string>('');
 
   const [error, setError] = useState<string | null>(null);
+  const [confirmDuplicateNameSave, setConfirmDuplicateNameSave] =
+    useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   const initialSnapshot = useMemo(() => {
     if (!editingItem) {
+      if (templateItem) {
+        return {
+          name: `${templateItem.name} (Copy)`,
+          category: templateItem.category,
+          purchaseUnit: templateItem.purchase_unit,
+          purchaseQty: String(templateItem.purchase_qty),
+          pricePaid: String(templateItem.price_paid),
+          supplierUrl: templateItem.supplier_url || '',
+          attentionType: 'Exclusive / Focused' as AttentionType,
+          hourlyRate: '',
+        };
+      }
       return {
         name: '',
         category: '',
@@ -139,11 +161,12 @@ export const ItemModal: React.FC<ItemModalProps> = ({
       attentionType: 'Exclusive / Focused' as AttentionType,
       hourlyRate: '',
     };
-  }, [editingItem]);
+  }, [editingItem, templateItem]);
 
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
+    setConfirmDuplicateNameSave(false);
     setShowDiscardConfirm(false);
     setPendingAction(null);
     setEntityType(initialEntityType);
@@ -157,6 +180,32 @@ export const ItemModal: React.FC<ItemModalProps> = ({
     setAttentionType(initialSnapshot.attentionType);
     setHourlyRate(initialSnapshot.hourlyRate);
   }, [isOpen, initialEntityType, initialSnapshot]);
+
+  // Real-time duplicate name detection (case-insensitive) for Materials and Packaging
+  const duplicateExistingItem = useMemo(() => {
+    if (entityType === 'labor') return null;
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const pool =
+      entityType === 'materials' ? existingMaterials : existingPackaging;
+    return (
+      pool.find(
+        (item) =>
+          item.id !== editingItem?.id &&
+          item.name.trim().toLowerCase() === trimmed.toLowerCase()
+      ) || null
+    );
+  }, [
+    entityType,
+    name,
+    existingMaterials,
+    existingPackaging,
+    editingItem?.id,
+  ]);
+
+  useEffect(() => {
+    setConfirmDuplicateNameSave(false);
+  }, [name, entityType]);
 
   const isDirty = useMemo(() => {
     if (!isOpen) return false;
@@ -270,6 +319,13 @@ export const ItemModal: React.FC<ItemModalProps> = ({
 
     if (!category.trim()) {
       setError('Please select or type a category.');
+      return;
+    }
+
+    if (duplicateExistingItem && !confirmDuplicateNameSave) {
+      setError(
+        `A material named '${name.trim()}' already exists. Please rename it or confirm intentional duplicate below.`
+      );
       return;
     }
 
@@ -448,8 +504,65 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                   ? 'e.g., Small Kraft Mailer Box, Cotton Ribbon'
                   : 'e.g., Focused Manual Handcrafting'
               }
-              className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-2xl text-sm font-normal text-[#2D3134] placeholder:text-[#64748B] transition-all"
+              className={`w-full px-4 py-3 bg-white border ${
+                duplicateExistingItem
+                  ? 'border-[#E78358] focus:border-[#E78358] focus:ring-[#E78358]'
+                  : 'border-slate-200 focus:border-[#2A8C82] focus:ring-[#2A8C82]'
+              } focus:ring-1 outline-none rounded-2xl text-sm font-normal text-[#2D3134] placeholder:text-[#64748B] transition-all`}
             />
+
+            {/* Inline Duplicate Item Name Warning Badge & Quick Variant Rename */}
+            {duplicateExistingItem && (
+              <div
+                role="alert"
+                className="mt-3 p-3.5 rounded-2xl bg-[#E78358]/10 border border-[#E78358]/30 text-xs space-y-2.5"
+              >
+                <div className="flex items-start gap-2.5 text-[#2D3134]">
+                  <AlertTriangle className="w-4 h-4 text-[#E78358] shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">
+                    A material named &apos;
+                    <strong className="font-semibold">{name.trim()}</strong>
+                    &apos; already exists. Consider adding a specific variant
+                    (e.g., color, thickness, or brand).
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pl-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setName(`${name.trim()} (Variant)`);
+                      setError(null);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#F8F9FA] text-[#2A8C82] border border-[#2A8C82]/30 text-xs font-semibold shadow-xs transition-colors"
+                  >
+                    <span>
+                      Rename to &apos;{name.trim()} (Variant)&apos;
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmDuplicateNameSave((prev) => !prev);
+                      setError(null);
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                      confirmDuplicateNameSave
+                        ? 'bg-[#2A8C82] text-white border-[#2A8C82]'
+                        : 'bg-white text-[#64748B] hover:text-[#2D3134] border-slate-200'
+                    }`}
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>
+                      {confirmDuplicateNameSave
+                        ? 'Confirmed: Keep duplicate name'
+                        : 'Keep duplicate name anyway'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {entityType !== 'labor' ? (
@@ -460,9 +573,26 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                   <label className="block text-xs font-medium text-[#2D3134]">
                     Category
                   </label>
-                  <span className="text-[11px] font-normal text-[#64748B]">
-                    Type a new name to auto-save
-                  </span>
+                  <div className="flex items-center gap-3">
+                    {onOpenCategoryManager && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onOpenCategoryManager(
+                            entityType === 'materials'
+                              ? 'materials'
+                              : 'packaging'
+                          )
+                        }
+                        className="text-[11px] font-medium text-[#2A8C82] hover:underline"
+                      >
+                        Manage Categories
+                      </button>
+                    )}
+                    <span className="text-[11px] font-normal text-[#64748B]">
+                      Select or click + Add New Category
+                    </span>
+                  </div>
                 </div>
                 <CategoryCombobox
                   value={category}
@@ -471,6 +601,16 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                     entityType === 'materials'
                       ? materialCategories
                       : packagingCategories
+                  }
+                  onOpenCategoryManager={
+                    onOpenCategoryManager
+                      ? () =>
+                          onOpenCategoryManager(
+                            entityType === 'materials'
+                              ? 'materials'
+                              : 'packaging'
+                          )
+                      : undefined
                   }
                   placeholder={
                     entityType === 'materials'

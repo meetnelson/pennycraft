@@ -589,11 +589,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     </span>
                     <span className="text-xs font-normal text-[#64748B]">
                       / month or{' '}
-                      <strong className="text-[#2D3134]">$12 / year</strong>
+                      <strong className="text-[#2D3134]">$18 / year</strong>
                     </span>
                   </div>
                   <span className="inline-block mt-1 text-xs font-medium text-[#E78358]">
-                    Save 50% with annual billing
+                    Save 25% with annual billing ($1.50/mo vs. $1.99/mo)
                   </span>
                 </div>
 
@@ -704,6 +704,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
+            <a
+              href="https://formulo.cc"
+              className="text-xs text-[#64748B] hover:text-[#2D3134] transition-colors"
+            >
+              formulo.cc
+            </a>
+            <a
+              href="mailto:support@formulo.cc"
+              className="text-xs text-[#64748B] hover:text-[#2A8C82] transition-colors"
+            >
+              support@formulo.cc
+            </a>
             <button
               type="button"
               onClick={() => setIsFeedbackOpen(true)}
@@ -715,9 +727,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto mt-4 pt-4 border-t border-slate-200 text-center sm:text-left text-[11px] text-[#64748B]">
-          Pricing recommendations are estimations based on user inputs. Not
-          formal financial advice.
+        <div className="max-w-7xl mx-auto mt-4 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left text-[11px] text-[#64748B]">
+          <span>
+            Pricing recommendations are estimations based on user inputs. Not
+            formal financial advice.
+          </span>
+          <span>
+            Need help? Contact{' '}
+            <a
+              href="mailto:support@formulo.cc"
+              className="text-[#2A8C82] hover:underline"
+            >
+              support@formulo.cc
+            </a>
+          </span>
         </div>
       </footer>
 
@@ -796,10 +819,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                 <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-200">
                   <a
-                    href="mailto:support@formulo.app?subject=Formulo%20Feedback"
+                    href="mailto:support@formulo.cc?subject=Formulo%20Feedback"
                     className="text-xs text-[#64748B] hover:text-[#2A8C82] underline underline-offset-2 transition-colors"
                   >
-                    Or email support@formulo.app
+                    Or email support@formulo.cc
                   </a>
 
                   <div className="flex items-center justify-end gap-2">

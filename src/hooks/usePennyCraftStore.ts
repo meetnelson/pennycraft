@@ -746,6 +746,152 @@ export function usePennyCraftStore() {
     return trimmed;
   }, []);
 
+  // --- CATEGORY MANAGEMENT (ADD, RENAME, DELETE UNUSED) ---
+  const addCategory = useCallback(
+    (scope: 'materials' | 'packaging' | 'products', rawName: string) => {
+      const trimmed = rawName.trim();
+      if (!trimmed) return;
+      setHasLocalData(true);
+      if (scope === 'materials') {
+        ensureMaterialCategory(trimmed);
+      } else if (scope === 'packaging') {
+        ensurePackagingCategory(trimmed);
+      } else {
+        ensureProductCategory(trimmed);
+      }
+    },
+    [ensureMaterialCategory, ensurePackagingCategory, ensureProductCategory]
+  );
+
+  const renameCategory = useCallback(
+    (
+      scope: 'materials' | 'packaging' | 'products',
+      oldName: string,
+      newName: string
+    ) => {
+      const cleanOld = oldName.trim();
+      const cleanNew = newName.trim();
+      if (!cleanOld || !cleanNew || cleanOld === cleanNew) return;
+      setHasLocalData(true);
+
+      const updateList = (prev: string[]) => {
+        const next: string[] = [];
+        for (const cat of prev) {
+          const updated =
+            cat.toLowerCase() === cleanOld.toLowerCase() ? cleanNew : cat;
+          if (
+            !next.some((existing) => existing.toLowerCase() === updated.toLowerCase())
+          ) {
+            next.push(updated);
+          }
+        }
+        if (
+          !next.some((existing) => existing.toLowerCase() === cleanNew.toLowerCase())
+        ) {
+          next.push(cleanNew);
+        }
+        return next;
+      };
+
+      if (scope === 'materials') {
+        setMaterialCategories(updateList);
+        setMaterials((prev) =>
+          prev.map((item) => {
+            if (item.category.toLowerCase() !== cleanOld.toLowerCase()) {
+              return item;
+            }
+            const updated: MaterialItem = {
+              ...item,
+              category: cleanNew,
+              updated_at: new Date().toISOString(),
+            };
+            if (user) {
+              upsertCloudItem(updated, 'material', user.id);
+            }
+            return updated;
+          })
+        );
+      } else if (scope === 'packaging') {
+        setPackagingCategories(updateList);
+        setPackaging((prev) =>
+          prev.map((item) => {
+            if (item.category.toLowerCase() !== cleanOld.toLowerCase()) {
+              return item;
+            }
+            const updated: PackagingItem = {
+              ...item,
+              category: cleanNew,
+              updated_at: new Date().toISOString(),
+            };
+            if (user) {
+              upsertCloudItem(updated, 'packaging', user.id);
+            }
+            return updated;
+          })
+        );
+      } else {
+        setProductCategories(updateList);
+        setProducts((prev) =>
+          prev.map((prod) => {
+            if (prod.category.toLowerCase() !== cleanOld.toLowerCase()) {
+              return prod;
+            }
+            const updated: ProductItem = {
+              ...prod,
+              category: cleanNew,
+              updated_at: new Date().toISOString(),
+            };
+            if (user) {
+              upsertCloudProduct(updated, user.id);
+            }
+            return updated;
+          })
+        );
+      }
+    },
+    [user, upsertCloudItem, upsertCloudProduct]
+  );
+
+  const deleteCategory = useCallback(
+    (scope: 'materials' | 'packaging' | 'products', categoryName: string) => {
+      const target = categoryName.trim().toLowerCase();
+      if (!target) return false;
+      setHasLocalData(true);
+
+      if (scope === 'materials') {
+        const isUsed = materials.some(
+          (m) => m.category.trim().toLowerCase() === target
+        );
+        if (isUsed) return false;
+        setMaterialCategories((prev) =>
+          prev.filter((c) => c.trim().toLowerCase() !== target)
+        );
+        return true;
+      }
+
+      if (scope === 'packaging') {
+        const isUsed = packaging.some(
+          (p) => p.category.trim().toLowerCase() === target
+        );
+        if (isUsed) return false;
+        setPackagingCategories((prev) =>
+          prev.filter((c) => c.trim().toLowerCase() !== target)
+        );
+        return true;
+      }
+
+      const isUsed = products.some(
+        (p) => p.category.trim().toLowerCase() === target
+      );
+      if (isUsed) return false;
+      setProductCategories((prev) =>
+        prev.filter((c) => c.trim().toLowerCase() !== target)
+      );
+      return true;
+    },
+    [materials, packaging, products]
+  );
+
   // --- CASCADE IMPACT TRIGGER ---
   const triggerCascadeImpact = useCallback(
     (itemId: string, itemName: string, itemType: 'Material' | 'Packaging') => {
@@ -1469,6 +1615,387 @@ export function usePennyCraftStore() {
     setProductCategories(INITIAL_PRODUCT_CATEGORIES);
   }, []);
 
+  // --- LOCAL BACKUP: EXPORT & IMPORT STUDIO DATA (JSON) ---
+  const exportStudioDataJSON = useCallback(() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const filename = `formulo-backup-${yyyy}-${mm}-${dd}.json`;
+
+    const backupPayload = {
+      app: 'Formulo',
+      domain: 'https://formulo.cc',
+      version: 1,
+      exported_at: now.toISOString(),
+      data: {
+        materials,
+        packaging,
+        laborRates,
+        pricingRules,
+        products,
+        materialCategories,
+        packagingCategories,
+        productCategories,
+      },
+    };
+
+    const jsonString = JSON.stringify(backupPayload, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    return filename;
+  }, [
+    materials,
+    packaging,
+    laborRates,
+    pricingRules,
+    products,
+    materialCategories,
+    packagingCategories,
+    productCategories,
+  ]);
+
+  const importStudioDataJSON = useCallback(
+    (rawParsed: unknown): { success: boolean; error?: string; counts?: { materials: number; packaging: number; products: number; rules: number } } => {
+      if (!rawParsed || typeof rawParsed !== 'object') {
+        return {
+          success: false,
+          error: 'Invalid backup file: expected a JSON object.',
+        };
+      }
+
+      const root = rawParsed as Record<string, unknown>;
+      const dataObj = (
+        root.data && typeof root.data === 'object' ? root.data : root
+      ) as Record<string, unknown>;
+
+      const rawMats = Array.isArray(dataObj.materials) ? dataObj.materials : null;
+      const rawPkgs = Array.isArray(dataObj.packaging) ? dataObj.packaging : null;
+      const rawLabor = Array.isArray(dataObj.laborRates)
+        ? dataObj.laborRates
+        : Array.isArray(dataObj.labor_rates)
+        ? dataObj.labor_rates
+        : null;
+      const rawRules = Array.isArray(dataObj.pricingRules)
+        ? dataObj.pricingRules
+        : Array.isArray(dataObj.pricing_rules)
+        ? dataObj.pricing_rules
+        : null;
+      const rawProds = Array.isArray(dataObj.products) ? dataObj.products : null;
+
+      if (!rawMats && !rawPkgs && !rawProds && !rawRules && !rawLabor) {
+        return {
+          success: false,
+          error:
+            'Invalid Formulo backup file: no materials, products, or pricing rules found.',
+        };
+      }
+
+      const idMap = new Map<string, string>();
+      const nowIso = new Date().toISOString();
+
+      // Merge / normalize materials
+      const importedMaterials: MaterialItem[] = (rawMats || []).flatMap(
+        (m: unknown) => {
+          if (!m || typeof m !== 'object') return [];
+          const rec = m as Record<string, unknown>;
+          if (typeof rec.name !== 'string' || !rec.name.trim()) return [];
+          const rawId = typeof rec.id === 'string' ? rec.id : generateId('mat');
+          const id = resolveUuid(rawId, idMap);
+          const qty = Math.max(0.001, Number(rec.purchase_qty) || 1);
+          const price = Math.max(0, Number(rec.price_paid) || 0);
+          return [
+            {
+              id,
+              name: rec.name.trim(),
+              category:
+                typeof rec.category === 'string' && rec.category.trim()
+                  ? rec.category.trim()
+                  : 'Uncategorized',
+              purchase_unit: (rec.purchase_unit as MaterialUnit) || 'un',
+              purchase_qty: qty,
+              price_paid: price,
+              unit_cost: calculateUnitCost(price, qty),
+              supplier_url:
+                typeof rec.supplier_url === 'string' && rec.supplier_url.trim()
+                  ? rec.supplier_url.trim()
+                  : undefined,
+              updated_at:
+                typeof rec.updated_at === 'string' ? rec.updated_at : nowIso,
+            },
+          ];
+        }
+      );
+
+      // Merge / normalize packaging
+      const importedPackaging: PackagingItem[] = (rawPkgs || []).flatMap(
+        (p: unknown) => {
+          if (!p || typeof p !== 'object') return [];
+          const rec = p as Record<string, unknown>;
+          if (typeof rec.name !== 'string' || !rec.name.trim()) return [];
+          const rawId = typeof rec.id === 'string' ? rec.id : generateId('pkg');
+          const id = resolveUuid(rawId, idMap);
+          const qty = Math.max(0.001, Number(rec.purchase_qty) || 1);
+          const price = Math.max(0, Number(rec.price_paid) || 0);
+          return [
+            {
+              id,
+              name: rec.name.trim(),
+              category:
+                typeof rec.category === 'string' && rec.category.trim()
+                  ? rec.category.trim()
+                  : 'Uncategorized',
+              purchase_unit: (rec.purchase_unit as PackagingUnit) || 'un',
+              purchase_qty: qty,
+              price_paid: price,
+              unit_cost: calculateUnitCost(price, qty),
+              supplier_url:
+                typeof rec.supplier_url === 'string' && rec.supplier_url.trim()
+                  ? rec.supplier_url.trim()
+                  : undefined,
+              updated_at:
+                typeof rec.updated_at === 'string' ? rec.updated_at : nowIso,
+            },
+          ];
+        }
+      );
+
+      // Merge / normalize labor rates
+      const importedLabor: LaborRateItem[] = (rawLabor || []).flatMap(
+        (l: unknown) => {
+          if (!l || typeof l !== 'object') return [];
+          const rec = l as Record<string, unknown>;
+          if (typeof rec.name !== 'string' || !rec.name.trim()) return [];
+          const rawId = typeof rec.id === 'string' ? rec.id : generateId('lab');
+          const id = resolveUuid(rawId, idMap);
+          const hourly = Math.max(0.01, Number(rec.hourly_rate) || 20);
+          return [
+            {
+              id,
+              name: rec.name.trim(),
+              attention_type:
+                rec.attention_type === 'Batch / Passive'
+                  ? 'Batch / Passive'
+                  : 'Exclusive / Focused',
+              hourly_rate: hourly,
+              minute_rate: calculateMinuteRate(hourly),
+              updated_at:
+                typeof rec.updated_at === 'string' ? rec.updated_at : nowIso,
+            },
+          ];
+        }
+      );
+
+      // Merge / normalize pricing rules
+      const importedRules: PricingRule[] = (rawRules || []).flatMap(
+        (r: unknown) => {
+          if (!r || typeof r !== 'object') return [];
+          const rec = r as Record<string, unknown>;
+          if (typeof rec.name !== 'string' || !rec.name.trim()) return [];
+          const rawId = typeof rec.id === 'string' ? rec.id : generateId('rule');
+          const id = resolveUuid(rawId, idMap);
+          const blocks = Array.isArray(rec.blocks)
+            ? (rec.blocks as PricingBlock[])
+            : [];
+          return [
+            {
+              id,
+              name: rec.name.trim(),
+              description:
+                typeof rec.description === 'string' ? rec.description : '',
+              blocks,
+              updated_at:
+                typeof rec.updated_at === 'string' ? rec.updated_at : nowIso,
+            },
+          ];
+        }
+      );
+
+      // Merge by ID (imported items override matching IDs, while preserving existing items with different IDs)
+      const mergeById = <T extends { id: string }>(
+        existing: T[],
+        incoming: T[]
+      ): T[] => {
+        if (incoming.length === 0) return existing;
+        const map = new Map<string, T>();
+        existing.forEach((item) => map.set(item.id, item));
+        incoming.forEach((item) => map.set(item.id, item));
+        return Array.from(map.values());
+      };
+
+      const finalMaterials = mergeById(materials, importedMaterials);
+      const finalPackaging = mergeById(packaging, importedPackaging);
+      const finalLabor = mergeById(laborRates, importedLabor);
+      const finalRules = mergeById(pricingRules, importedRules);
+
+      const importedProducts: ProductItem[] = (rawProds || []).flatMap(
+        (p: unknown) => {
+          if (!p || typeof p !== 'object') return [];
+          const rec = p as Record<string, unknown>;
+          if (typeof rec.name !== 'string' || !rec.name.trim()) return [];
+          const rawId = typeof rec.id === 'string' ? rec.id : generateId('prod');
+          const id = resolveUuid(rawId, idMap);
+
+          const items_materials = Array.isArray(rec.items_materials)
+            ? rec.items_materials.map((m: Record<string, unknown>) => ({
+                material_id: resolveUuid(String(m.material_id || ''), idMap),
+                qty_used: Math.max(0, Number(m.qty_used) || 0),
+              }))
+            : [];
+          const items_packaging = Array.isArray(rec.items_packaging)
+            ? rec.items_packaging.map((pk: Record<string, unknown>) => ({
+                packaging_id: resolveUuid(String(pk.packaging_id || ''), idMap),
+                qty_used: Math.max(0, Number(pk.qty_used) || 0),
+              }))
+            : [];
+          const items_labor = Array.isArray(rec.items_labor)
+            ? rec.items_labor.map((lb: Record<string, unknown>) => ({
+                labor_id: resolveUuid(String(lb.labor_id || ''), idMap),
+                minutes_spent: Math.max(0, Number(lb.minutes_spent) || 0),
+              }))
+            : [];
+
+          const totals = computeProductBomTotals(
+            items_materials,
+            items_packaging,
+            items_labor,
+            finalMaterials,
+            finalPackaging,
+            finalLabor
+          );
+
+          const defaultRuleId =
+            typeof rec.default_rule_id === 'string' && rec.default_rule_id
+              ? resolveUuid(rec.default_rule_id, idMap)
+              : finalRules[0]?.id;
+
+          return [
+            {
+              id,
+              name: rec.name.trim(),
+              category:
+                typeof rec.category === 'string' && rec.category.trim()
+                  ? rec.category.trim()
+                  : 'General Craft',
+              default_rule_id: defaultRuleId,
+              ...totals,
+              updated_at:
+                typeof rec.updated_at === 'string' ? rec.updated_at : nowIso,
+              price_stale_flag: false,
+              affected_by_names: [],
+            },
+          ];
+        }
+      );
+
+      const finalProducts = mergeById(products, importedProducts);
+
+      // Merge categories
+      const mergeCategories = (
+        existing: string[],
+        extraFromFile: unknown,
+        fromItems: string[]
+      ) => {
+        const result = [...existing];
+        const addUnique = (val: string) => {
+          const clean = val.trim();
+          if (
+            clean &&
+            !result.some((c) => c.toLowerCase() === clean.toLowerCase())
+          ) {
+            result.push(clean);
+          }
+        };
+        if (Array.isArray(extraFromFile)) {
+          extraFromFile.forEach((c) => {
+            if (typeof c === 'string') addUnique(c);
+          });
+        }
+        fromItems.forEach(addUnique);
+        return result;
+      };
+
+      setHasLocalData(true);
+      setMaterials(finalMaterials);
+      setPackaging(finalPackaging);
+      setLaborRates(finalLabor);
+      setPricingRules(finalRules);
+      setProducts(finalProducts);
+
+      setMaterialCategories((prev) =>
+        mergeCategories(
+          prev,
+          dataObj.materialCategories,
+          finalMaterials.map((m) => m.category)
+        )
+      );
+      setPackagingCategories((prev) =>
+        mergeCategories(
+          prev,
+          dataObj.packagingCategories,
+          finalPackaging.map((p) => p.category)
+        )
+      );
+      setProductCategories((prev) =>
+        mergeCategories(
+          prev,
+          dataObj.productCategories,
+          finalProducts.map((p) => p.category)
+        )
+      );
+
+      finalMaterials.forEach((m) => {
+        if (m.supplier_url) saveSupplierUrlLocal(m.id, m.supplier_url);
+      });
+      finalPackaging.forEach((p) => {
+        if (p.supplier_url) saveSupplierUrlLocal(p.id, p.supplier_url);
+      });
+
+      if (user) {
+        Promise.all([
+          ...importedMaterials.map((m) => upsertCloudItem(m, 'material', user.id)),
+          ...importedPackaging.map((p) =>
+            upsertCloudItem(p, 'packaging', user.id)
+          ),
+          ...importedLabor.map((l) => upsertCloudLabor(l, user.id)),
+          ...importedRules.map((r) => upsertCloudRule(r, user.id)),
+        ]).then(() => {
+          importedProducts.forEach((prod) => upsertCloudProduct(prod, user.id));
+        });
+      }
+
+      return {
+        success: true,
+        counts: {
+          materials: importedMaterials.length,
+          packaging: importedPackaging.length,
+          products: importedProducts.length,
+          rules: importedRules.length,
+        },
+      };
+    },
+    [
+      materials,
+      packaging,
+      laborRates,
+      pricingRules,
+      products,
+      saveSupplierUrlLocal,
+      user,
+      upsertCloudItem,
+      upsertCloudLabor,
+      upsertCloudRule,
+      upsertCloudProduct,
+    ]
+  );
+
   const hasExistingStudioData =
     Boolean(user) ||
     (hasLocalData &&
@@ -1489,6 +2016,11 @@ export function usePennyCraftStore() {
     materialCategories,
     packagingCategories,
     productCategories,
+    addCategory,
+    renameCategory,
+    deleteCategory,
+    exportStudioDataJSON,
+    importStudioDataJSON,
     addMaterial,
     updateMaterial,
     quickUpdateMaterialPrice,

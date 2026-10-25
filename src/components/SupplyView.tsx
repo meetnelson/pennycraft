@@ -16,6 +16,8 @@ import {
   AlertCircle,
   ExternalLink,
   ArrowUpDown,
+  Copy,
+  FolderKanban,
 } from 'lucide-react';
 import { MaterialItem, PackagingItem } from '../types/pricing';
 import {
@@ -33,6 +35,8 @@ interface SupplyViewProps {
   items: SupplyItem[];
   onOpenAdd: () => void;
   onOpenEdit: (item: SupplyItem) => void;
+  onDuplicate: (item: SupplyItem) => void;
+  onOpenCategoryManager?: () => void;
   onQuickUpdatePrice: (
     id: string,
     newPricePaid: number,
@@ -58,6 +62,8 @@ export const SupplyView: React.FC<SupplyViewProps> = ({
   items,
   onOpenAdd,
   onOpenEdit,
+  onDuplicate,
+  onOpenCategoryManager,
   onQuickUpdatePrice,
   onDelete,
 }) => {
@@ -231,6 +237,17 @@ export const SupplyView: React.FC<SupplyViewProps> = ({
                 {cat}
               </button>
             ))}
+            {onOpenCategoryManager && (
+              <button
+                type="button"
+                onClick={onOpenCategoryManager}
+                title="Manage Categories"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white hover:bg-[#F8F9FA] text-[#2A8C82] border border-slate-200 hover:border-[#2A8C82]/40 text-xs font-medium whitespace-nowrap transition-all"
+              >
+                <FolderKanban className="w-3 h-3 shrink-0" />
+                <span>Manage Categories</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -521,6 +538,17 @@ export const SupplyView: React.FC<SupplyViewProps> = ({
 
                       <button
                         type="button"
+                        onClick={() => onDuplicate(item)}
+                        title={`Duplicate ${singularLabel.toLowerCase()} as template`}
+                        aria-label={`Duplicate ${item.name}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-normal text-[#64748B] hover:text-[#2A8C82] hover:bg-[#2A8C82]/10 transition-colors"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Duplicate</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => onOpenEdit(item)}
                         title="Edit full item details"
                         className="text-[#64748B] hover:text-[#2D3134] hover:bg-[#F8F9FA] rounded-lg p-1.5 transition-colors"
@@ -695,7 +723,18 @@ export const SupplyView: React.FC<SupplyViewProps> = ({
                             </button>
                             <button
                               type="button"
+                              onClick={() => onDuplicate(item)}
+                              title={`Duplicate ${singularLabel.toLowerCase()} as template`}
+                              aria-label={`Duplicate ${item.name}`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white border border-slate-200 hover:bg-[#2A8C82]/10 hover:text-[#2A8C82] hover:border-[#2A8C82]/30 text-[#64748B] text-xs font-normal transition-colors"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Duplicate</span>
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => onOpenEdit(item)}
+                              title="Edit full item details"
                               className="text-[#64748B] hover:text-[#2D3134] hover:bg-[#F8F9FA] rounded-lg p-1.5"
                             >
                               <Edit3 className="w-3.5 h-3.5" />

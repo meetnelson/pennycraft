@@ -8,6 +8,10 @@ import {
   Loader2,
   User as UserIcon,
   Home,
+  FolderKanban,
+  Download,
+  Upload,
+  Mail,
 } from 'lucide-react';
 import { ActiveTab } from '../types/pricing';
 
@@ -32,6 +36,9 @@ interface NavbarProps {
   onOpenAuthModal: () => void;
   onSignOut: () => void;
   onResetDemo: () => void;
+  onOpenCategoryManager?: () => void;
+  onExportStudioData?: () => void;
+  onImportStudioData?: () => void;
   onNavigateHome?: () => void;
   onLogoClick?: () => void;
 }
@@ -45,6 +52,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAuthModal,
   onSignOut,
   onResetDemo,
+  onOpenCategoryManager,
+  onExportStudioData,
+  onImportStudioData,
   onNavigateHome,
   onLogoClick,
 }) => {
@@ -90,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const renderDropdownMenu = () => (
-    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-sm border border-slate-200 py-2 z-50">
+    <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-sm border border-slate-200 py-2 z-50">
       {userEmail ? (
         <div className="px-3.5 py-2 border-b border-slate-200">
           <p className="text-[11px] font-normal text-[#64748B]">Signed in as</p>
@@ -103,10 +113,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </div>
       ) : (
-        <div className="px-3.5 py-2 border-b border-slate-200">
+        <div className="px-3.5 py-2.5 border-b border-slate-200">
           <p className="text-xs font-medium text-[#2D3134]">Local Studio</p>
           <p className="text-[11px] font-normal text-[#64748B] mt-0.5">
-            Saved in this browser
+            Saved in this browser • Cloud: $1.99/mo or $18/yr
           </p>
           <button
             type="button"
@@ -117,10 +127,55 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2A8C82] hover:bg-[#23736B] text-white text-xs font-medium transition-colors"
           >
             <Cloud className="w-3.5 h-3.5 text-[#F4B266]" />
-            <span>Save to Cloud / Sign In</span>
+            <span>Upgrade to Cloud / Sign In</span>
           </button>
         </div>
       )}
+
+      {/* Category Management & Local Backup Section */}
+      <div className="py-1 border-b border-slate-200">
+        {onOpenCategoryManager && (
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              onOpenCategoryManager();
+            }}
+            className="w-full px-3.5 py-2 text-left text-xs font-normal text-[#2D3134] hover:bg-[#F8F9FA] flex items-center gap-2 transition-colors"
+          >
+            <FolderKanban className="w-3.5 h-3.5 text-[#2A8C82]" />
+            <span>Manage Categories</span>
+          </button>
+        )}
+
+        {onExportStudioData && (
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              onExportStudioData();
+            }}
+            className="w-full px-3.5 py-2 text-left text-xs font-normal text-[#2D3134] hover:bg-[#F8F9FA] flex items-center gap-2 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5 text-[#2A8C82]" />
+            <span>Export Studio Data (JSON)</span>
+          </button>
+        )}
+
+        {onImportStudioData && (
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              onImportStudioData();
+            }}
+            className="w-full px-3.5 py-2 text-left text-xs font-normal text-[#2D3134] hover:bg-[#F8F9FA] flex items-center gap-2 transition-colors"
+          >
+            <Upload className="w-3.5 h-3.5 text-[#E78358]" />
+            <span>Import Studio Data</span>
+          </button>
+        )}
+      </div>
 
       {onNavigateHome && (
         <button
@@ -147,6 +202,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         <RotateCcw className="w-3.5 h-3.5 text-[#64748B]" />
         <span>Reset sample data</span>
       </button>
+
+      <a
+        href="mailto:support@formulo.cc"
+        onClick={() => setMenuOpen(false)}
+        className="w-full px-3.5 py-2 text-left text-xs font-normal text-[#64748B] hover:text-[#2D3134] hover:bg-[#F8F9FA] flex items-center gap-2 transition-colors"
+      >
+        <Mail className="w-3.5 h-3.5 text-[#64748B]" />
+        <span>support@formulo.cc</span>
+      </a>
 
       {userEmail && (
         <button

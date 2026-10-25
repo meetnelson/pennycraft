@@ -114,10 +114,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-semibold text-[#2D3134]">
-                Save to Cloud
+                Upgrade to Studio Cloud
               </h2>
               <p className="text-xs font-normal text-[#64748B] mt-0.5 leading-relaxed">
-                Create a free Formulo account to back up your materials, recipes, and rules across your devices.
+                Sync your Formulo materials, recipes, and pricing rules across all your devices.
               </p>
             </div>
           </div>
@@ -131,8 +131,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
         </div>
 
-        {/* Mode Switcher Pills */}
+        {/* Cloud Plan Pricing Summary Banner */}
         <div className="px-7 pt-5">
+          <div className="p-3.5 rounded-2xl bg-[#F8F9FA] border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div>
+              <span className="font-semibold text-[#2D3134]">
+                $1.99 / month
+              </span>{' '}
+              <span className="text-[#64748B]">or</span>{' '}
+              <span className="font-semibold text-[#2A8C82]">$18 / year</span>
+            </div>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#E78358]/10 text-[#E78358] border border-[#E78358]/30 text-[11px] font-medium">
+              Save 25% vs. monthly
+            </span>
+          </div>
+        </div>
+
+        {/* Mode Switcher Pills */}
+        <div className="px-7 pt-4">
           <div className="grid grid-cols-3 gap-1 bg-[#F8F9FA] border border-slate-200 p-1 rounded-2xl text-xs">
             <button
               type="button"
@@ -274,6 +290,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     : 'Sign In'}
                 </span>
               </button>
+            </div>
+
+            <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-[#64748B]">
+              <span>formulo.cc</span>
+              <a
+                href="mailto:support@formulo.cc"
+                className="hover:text-[#2A8C82] underline underline-offset-2 transition-colors"
+              >
+                Questions? support@formulo.cc
+              </a>
             </div>
           </form>
         )}

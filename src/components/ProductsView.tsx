@@ -13,6 +13,7 @@ import {
   ChevronUp,
   Pencil,
   ArrowUpDown,
+  FolderKanban,
 } from 'lucide-react';
 import {
   CascadeAlert,
@@ -43,6 +44,7 @@ interface ProductsViewProps {
   onDeleteProduct: (id: string) => void;
   onRecalculateProduct: (id: string) => void;
   onRecalculateAllAffected: () => void;
+  onOpenCategoryManager?: () => void;
 }
 
 export const ProductsView: React.FC<ProductsViewProps> = ({
@@ -59,6 +61,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   onDeleteProduct,
   onRecalculateProduct,
   onRecalculateAllAffected,
+  onOpenCategoryManager,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -258,6 +261,17 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 {cat}
               </button>
             ))}
+            {onOpenCategoryManager && (
+              <button
+                type="button"
+                onClick={onOpenCategoryManager}
+                title="Manage Categories"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white hover:bg-[#F8F9FA] text-[#2A8C82] border border-slate-200 hover:border-[#2A8C82]/40 text-xs font-medium whitespace-nowrap transition-all"
+              >
+                <FolderKanban className="w-3 h-3 shrink-0" />
+                <span>Manage Categories</span>
+              </button>
+            )}
           </div>
         </div>
 

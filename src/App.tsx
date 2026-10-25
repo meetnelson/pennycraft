@@ -21,14 +21,31 @@ import { PricingRulesView } from './components/PricingRulesView';
 import { ItemModal } from './components/ItemModal';
 import { ProductBomModal } from './components/ProductBomModal';
 import { AuthModal } from './components/AuthModal';
-import { CheckCircle2, Cloud, X, AlertTriangle } from 'lucide-react';
+import {
+  CategoryManagerModal,
+  CategoryScope,
+} from './components/CategoryManagerModal';
+import {
+  CheckCircle2,
+  Cloud,
+  X,
+  AlertTriangle,
+  Download,
+  Upload,
+} from 'lucide-react';
 
 export const metadata = {
   title: 'Formulo — Smart Pricing Studio for Makers',
   description:
     'Know your costs. Price with confidence. Visual pricing recipes, batch calculations, and profit margins for craft studios.',
+  metadataBase: 'https://formulo.cc',
+  alternates: {
+    canonical: 'https://formulo.cc',
+  },
+  supportEmail: 'support@formulo.cc',
   openGraph: {
-    images: ['/images/Formulo-OpenGraph.png'],
+    url: 'https://formulo.cc',
+    images: ['https://formulo.cc/images/Formulo-OpenGraph.png'],
   },
 };
 
@@ -48,6 +65,9 @@ export function App() {
     materialCategories,
     packagingCategories,
     productCategories,
+    addCategory,
+    renameCategory,
+    deleteCategory,
     addMaterial,
     updateMaterial,
     quickUpdateMaterialPrice,
@@ -69,6 +89,8 @@ export function App() {
     deleteProduct,
     recalculateProduct,
     recalculateAllAffectedProducts,
+    exportStudioDataJSON,
+    importStudioDataJSON,
     resetDemoData,
   } = usePennyCraftStore();
 
@@ -123,12 +145,27 @@ export function App() {
   const [editingItem, setEditingItem] = useState<
     MaterialItem | PackagingItem | LaborRateItem | null
   >(null);
+  const [templateSupplyItem, setTemplateSupplyItem] = useState<
+    MaterialItem | PackagingItem | null
+  >(null);
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(
     null
   );
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+  const [categoryManagerScope, setCategoryManagerScope] =
+    useState<CategoryScope>('materials');
+
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingImportJson, setPendingImportJson] = useState<unknown | null>(
+    null
+  );
+  const [pendingImportFileName, setPendingImportFileName] = useState<
+    string | null
+  >(null);
 
   const [isFormDirty, setIsFormDirty] = useState(false);
   const [pendingNavAction, setPendingNavAction] = useState<(() => void) | null>(
@@ -205,6 +242,7 @@ export function App() {
       setIsProductModalOpen(false);
       setEditingProduct(null);
       setEditingItem(null);
+      setTemplateSupplyItem(null);
       setIsFormDirty(false);
       if (forcedType) {
         setModalEntityType(forcedType);
@@ -226,11 +264,86 @@ export function App() {
   ) => {
     setIsProductModalOpen(false);
     setEditingProduct(null);
+    setTemplateSupplyItem(null);
     setModalEntityType(type);
     setEditingItem(item);
     setIsFormDirty(false);
     setIsSupplyModalOpen(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDuplicateSupplyItem = (
+    type: 'materials' | 'packaging',
+    item: MaterialItem | PackagingItem
+  ) => {
+    setIsProductModalOpen(false);
+    setEditingProduct(null);
+    setEditingItem(null);
+    setTemplateSupplyItem(item);
+    setModalEntityType(type);
+    setIsFormDirty(false);
+    setIsSupplyModalOpen(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenCategoryManager = (scope?: CategoryScope) => {
+    if (scope) {
+      setCategoryManagerScope(scope);
+    } else if (activeTab === 'packaging') {
+      setCategoryManagerScope('packaging');
+    } else if (activeTab === 'products') {
+      setCategoryManagerScope('products');
+    } else {
+      setCategoryManagerScope('materials');
+    }
+    setIsCategoryManagerOpen(true);
+  };
+
+  const handleExportBackup = () => {
+    exportStudioDataJSON();
+    showToast('Exported studio data backup (JSON).');
+  };
+
+  const handleTriggerImportBackup = () => {
+    importInputRef.current?.click();
+  };
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = String(ev.target?.result || '');
+        const parsed = JSON.parse(text);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          showToast('Invalid backup file: Expected a JSON object.');
+          return;
+        }
+        setPendingImportFileName(file.name);
+        setPendingImportJson(parsed);
+      } catch {
+        showToast('Could not parse JSON file. Please select a valid backup.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleConfirmImport = () => {
+    if (!pendingImportJson) return;
+    const result = importStudioDataJSON(pendingImportJson);
+    setPendingImportJson(null);
+    setPendingImportFileName(null);
+    setIsCategoryManagerOpen(false);
+    if (result.success && result.counts) {
+      showToast(
+        `Studio backup restored: ${result.counts.products} products, ${result.counts.materials} materials, ${result.counts.packaging} packaging, and ${result.counts.rules} rules.`
+      );
+    } else {
+      showToast(result.error || 'Could not import studio data.');
+    }
   };
 
   if (currentRoute === '/') {
@@ -291,6 +404,9 @@ export function App() {
           resetDemoData();
           showToast('Sample studio data, recipes & pricing rules restored.');
         }}
+        onOpenCategoryManager={() => handleOpenCategoryManager()}
+        onExportStudioData={handleExportBackup}
+        onImportStudioData={handleTriggerImportBackup}
         onNavigateHome={() =>
           guardNavigation(() => {
             setIsSupplyModalOpen(false);
@@ -300,6 +416,15 @@ export function App() {
           })
         }
         onLogoClick={handleSmartLogoClick}
+      />
+
+      {/* Hidden File Input for Studio Data JSON Import */}
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".json,application/json"
+        onChange={handleImportFileChange}
+        className="hidden"
       />
 
       {/* Discreet, Dismissible Local Cache Warning Banner (for users working locally prior to cloud sync) */}
@@ -315,14 +440,32 @@ export function App() {
               data.
             </p>
 
-            <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <div className="flex flex-wrap items-center gap-2 shrink-0 ml-auto">
+              <button
+                type="button"
+                onClick={handleExportBackup}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#F8F9FA] text-[#2D3134] border border-slate-200 text-xs font-medium transition-colors"
+              >
+                <Download className="w-3.5 h-3.5 text-[#2A8C82] shrink-0" />
+                <span>Export Studio Data (JSON)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleTriggerImportBackup}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#F8F9FA] text-[#2D3134] border border-slate-200 text-xs font-medium transition-colors"
+              >
+                <Upload className="w-3.5 h-3.5 text-[#E78358] shrink-0" />
+                <span>Import Studio Data</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setIsAuthModalOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2A8C82]/10 hover:bg-[#2A8C82]/15 text-[#2A8C82] border border-[#2A8C82]/25 text-xs font-medium transition-colors"
               >
                 <Cloud className="w-3.5 h-3.5 shrink-0" />
-                <span>Cloud Login / Sync</span>
+                <span>Cloud Sync ($1.99/mo or $18/yr)</span>
               </button>
 
               <button
@@ -352,6 +495,7 @@ export function App() {
             pricingRules={pricingRules}
             productCategories={productCategories}
             onDirtyChange={setIsFormDirty}
+            onOpenCategoryManager={() => handleOpenCategoryManager('products')}
             onClose={() => {
               setIsProductModalOpen(false);
               setEditingProduct(null);
@@ -377,16 +521,22 @@ export function App() {
             isOpen={isSupplyModalOpen}
             initialEntityType={modalEntityType}
             editingItem={editingItem}
+            templateItem={templateSupplyItem}
+            existingMaterials={materials}
+            existingPackaging={packaging}
             materialCategories={materialCategories}
             packagingCategories={packagingCategories}
             onDirtyChange={setIsFormDirty}
+            onOpenCategoryManager={(scope) => handleOpenCategoryManager(scope)}
             onClose={() => {
               setIsSupplyModalOpen(false);
               setEditingItem(null);
+              setTemplateSupplyItem(null);
               setIsFormDirty(false);
             }}
             onSwitchToCreateProduct={() => {
               setEditingProduct(null);
+              setTemplateSupplyItem(null);
               setIsProductModalOpen(true);
             }}
             onSaveMaterial={(data, editId) => {
@@ -400,6 +550,7 @@ export function App() {
                 setActiveTab('materials');
                 showToast(`Added "${data.name}" to Materials.`);
               }
+              setTemplateSupplyItem(null);
             }}
             onSavePackaging={(data, editId) => {
               if (editId) {
@@ -412,6 +563,7 @@ export function App() {
                 setActiveTab('packaging');
                 showToast(`Added "${data.name}" to Packaging.`);
               }
+              setTemplateSupplyItem(null);
             }}
             onSaveLabor={(data, editId) => {
               if (editId) {
@@ -434,6 +586,9 @@ export function App() {
                 laborRates={laborRates}
                 pricingRules={pricingRules}
                 cascadeAlerts={cascadeAlerts}
+                onOpenCategoryManager={() =>
+                  handleOpenCategoryManager('products')
+                }
                 onOpenAddProduct={() => {
                   setEditingProduct(null);
                   setIsFormDirty(false);
@@ -500,6 +655,12 @@ export function App() {
                 items={materials}
                 onOpenAdd={() => handleOpenAddModal('materials')}
                 onOpenEdit={(item) => handleOpenEditModal('materials', item)}
+                onDuplicate={(item) =>
+                  handleDuplicateSupplyItem('materials', item)
+                }
+                onOpenCategoryManager={() =>
+                  handleOpenCategoryManager('materials')
+                }
                 onQuickUpdatePrice={(id, newPrice, newQty) => {
                   quickUpdateMaterialPrice(id, newPrice, newQty);
                   showToast(
@@ -519,6 +680,12 @@ export function App() {
                 items={packaging}
                 onOpenAdd={() => handleOpenAddModal('packaging')}
                 onOpenEdit={(item) => handleOpenEditModal('packaging', item)}
+                onDuplicate={(item) =>
+                  handleDuplicateSupplyItem('packaging', item)
+                }
+                onOpenCategoryManager={() =>
+                  handleOpenCategoryManager('packaging')
+                }
                 onQuickUpdatePrice={(id, newPrice, newQty) => {
                   quickUpdatePackagingPrice(id, newPrice, newQty);
                   showToast(
@@ -608,6 +775,74 @@ export function App() {
         <div className="fixed bottom-5 right-5 z-50 bg-white border border-slate-200 text-[#2D3134] px-4 py-2.5 rounded-full shadow-md flex items-center gap-2 text-xs font-medium">
           <CheckCircle2 className="w-4 h-4 text-[#2A8C82] shrink-0" />
           <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Category Manager & Studio Data Backup Modal */}
+      <CategoryManagerModal
+        isOpen={isCategoryManagerOpen}
+        initialScope={categoryManagerScope}
+        materialCategories={materialCategories}
+        packagingCategories={packagingCategories}
+        productCategories={productCategories}
+        materials={materials}
+        packaging={packaging}
+        products={products}
+        onClose={() => setIsCategoryManagerOpen(false)}
+        onAddCategory={addCategory}
+        onRenameCategory={renameCategory}
+        onDeleteCategory={deleteCategory}
+        onExportBackup={handleExportBackup}
+        onTriggerImportBackup={handleTriggerImportBackup}
+      />
+
+      {/* Safe Confirmation Dialog before Importing JSON Studio Backup */}
+      {pendingImportJson !== null && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2D3134]/30 backdrop-blur-sm animate-fadeIn"
+        >
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-lg max-w-md w-full p-6 space-y-5">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-[#2A8C82]/10 border border-[#2A8C82]/25 text-[#2A8C82] flex items-center justify-center shrink-0">
+                <Upload className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-[#2D3134]">
+                  Importing will merge/restore your materials, products, and
+                  rules. Do you want to proceed?
+                </h3>
+                <p className="text-xs font-normal text-[#64748B] leading-relaxed">
+                  {pendingImportFileName
+                    ? `Selected file: "${pendingImportFileName}". `
+                    : ''}
+                  Matching IDs or names will be updated and new items will be
+                  added safely to your studio.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingImportJson(null);
+                  setPendingImportFileName(null);
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-[#F8F9FA] text-xs font-medium text-[#2D3134] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmImport}
+                className="px-4 py-2 rounded-xl bg-[#2A8C82] hover:bg-[#23736B] text-white text-xs font-semibold shadow-sm transition-colors"
+              >
+                Proceed with Import
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

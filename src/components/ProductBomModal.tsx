@@ -39,6 +39,7 @@ interface ProductBomModalProps {
   productCategories: string[];
   onClose: () => void;
   onManageRules?: () => void;
+  onOpenCategoryManager?: () => void;
   onDirtyChange?: (isDirty: boolean) => void;
   onSaveProduct: (
     data: {
@@ -63,6 +64,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
   productCategories,
   onClose,
   onManageRules,
+  onOpenCategoryManager,
   onDirtyChange,
   onSaveProduct,
 }) => {
@@ -459,13 +461,25 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#2D3134] mb-2">
-                  Product Category
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-medium text-[#2D3134]">
+                    Product Category
+                  </label>
+                  {onOpenCategoryManager && (
+                    <button
+                      type="button"
+                      onClick={onOpenCategoryManager}
+                      className="text-[11px] font-medium text-[#2A8C82] hover:underline"
+                    >
+                      Manage Categories
+                    </button>
+                  )}
+                </div>
                 <CategoryCombobox
                   value={category}
                   onChange={setCategory}
                   categories={productCategories}
+                  onOpenCategoryManager={onOpenCategoryManager}
                   placeholder="e.g., Planners & Journals"
                 />
               </div>
