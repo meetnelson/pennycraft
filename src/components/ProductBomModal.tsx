@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  X,
+  ArrowLeft,
   ShoppingBag,
   Layers,
   Package,
@@ -39,6 +39,7 @@ interface ProductBomModalProps {
   productCategories: string[];
   onClose: () => void;
   onManageRules?: () => void;
+  onDirtyChange?: (isDirty: boolean) => void;
   onSaveProduct: (
     data: {
       name: string;
@@ -62,6 +63,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
   productCategories,
   onClose,
   onManageRules,
+  onDirtyChange,
   onSaveProduct,
 }) => {
   const [name, setName] = useState('');
@@ -77,52 +79,99 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
     { labor_id: string; minutes_spent: string }[]
   >([]);
   const [error, setError] = useState<string | null>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  const initialSnapshot = useMemo(() => {
+    const defaultRule =
+      editingProduct?.default_rule_id || pricingRules[0]?.id || '';
+    if (!editingProduct) {
+      return {
+        name: '',
+        category: '',
+        selectedRuleId: defaultRule,
+        materialLines: [] as { material_id: string; qty_used: string }[],
+        packagingLines: [] as { packaging_id: string; qty_used: string }[],
+        laborLines: [] as { labor_id: string; minutes_spent: string }[],
+      };
+    }
+    return {
+      name: editingProduct.name,
+      category: editingProduct.category,
+      selectedRuleId: defaultRule,
+      materialLines: editingProduct.items_materials.map((m) => ({
+        material_id: m.material_id,
+        qty_used: String(m.qty_used),
+      })),
+      packagingLines: editingProduct.items_packaging.map((p) => ({
+        packaging_id: p.packaging_id,
+        qty_used: String(p.qty_used),
+      })),
+      laborLines: editingProduct.items_labor.map((l) => ({
+        labor_id: l.labor_id,
+        minutes_spent: String(l.minutes_spent),
+      })),
+    };
+  }, [editingProduct, pricingRules]);
 
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
+    setShowDiscardConfirm(false);
+    setPendingAction(null);
 
-    if (editingProduct) {
-      setName(editingProduct.name);
-      setCategory(editingProduct.category);
-      setSelectedRuleId(
-        editingProduct.default_rule_id || pricingRules[0]?.id || ''
-      );
-      setMaterialLines(
-        editingProduct.items_materials.map((m) => ({
-          material_id: m.material_id,
-          qty_used: String(m.qty_used),
-        }))
-      );
-      setPackagingLines(
-        editingProduct.items_packaging.map((p) => ({
-          packaging_id: p.packaging_id,
-          qty_used: String(p.qty_used),
-        }))
-      );
-      setLaborLines(
-        editingProduct.items_labor.map((l) => ({
-          labor_id: l.labor_id,
-          minutes_spent: String(l.minutes_spent),
-        }))
-      );
-    } else {
-      setName('');
-      setCategory('');
-      setSelectedRuleId(pricingRules[0]?.id || '');
-      setMaterialLines([]);
-      setPackagingLines([]);
-      setLaborLines([]);
-    }
+    setName(initialSnapshot.name);
+    setCategory(initialSnapshot.category);
+    setSelectedRuleId(initialSnapshot.selectedRuleId);
+    setMaterialLines(initialSnapshot.materialLines);
+    setPackagingLines(initialSnapshot.packagingLines);
+    setLaborLines(initialSnapshot.laborLines);
+  }, [isOpen, initialSnapshot]);
+
+  const isDirty = useMemo(() => {
+    if (!isOpen) return false;
+    if (name !== initialSnapshot.name) return true;
+    if (category !== initialSnapshot.category) return true;
+    if (selectedRuleId !== initialSnapshot.selectedRuleId) return true;
+    if (
+      JSON.stringify(materialLines) !==
+      JSON.stringify(initialSnapshot.materialLines)
+    )
+      return true;
+    if (
+      JSON.stringify(packagingLines) !==
+      JSON.stringify(initialSnapshot.packagingLines)
+    )
+      return true;
+    if (
+      JSON.stringify(laborLines) !== JSON.stringify(initialSnapshot.laborLines)
+    )
+      return true;
+    return false;
   }, [
     isOpen,
-    editingProduct,
-    productCategories,
-    materialsCatalog,
-    packagingCatalog,
-    laborCatalog,
-    pricingRules,
+    name,
+    category,
+    selectedRuleId,
+    materialLines,
+    packagingLines,
+    laborLines,
+    initialSnapshot,
   ]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!isOpen || !isDirty) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isOpen, isDirty]);
 
   const liveSummary = useMemo(() => {
     return computeProductBomTotals(
@@ -198,6 +247,19 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
   if (!isOpen) return null;
 
   const isEditing = Boolean(editingProduct);
+
+  const attemptActionWithGuard = (action: () => void) => {
+    if (isDirty) {
+      setPendingAction(() => action);
+      setShowDiscardConfirm(true);
+    } else {
+      action();
+    }
+  };
+
+  const handleRequestClose = () => {
+    attemptActionWithGuard(onClose);
+  };
 
   // Handlers for Section 1: Materials Used
   const handleAddMaterialLine = () => {
@@ -321,57 +383,56 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
       editingProduct?.id
     );
 
+    onDirtyChange?.(false);
     onClose();
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-[#303C36]/20 backdrop-blur-sm overflow-y-auto"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-white rounded-3xl shadow-[0_14px_40px_rgb(0,0,0,0.06)] w-full max-w-6xl max-h-[93vh] flex flex-col overflow-hidden my-auto border border-[#E8ECE9]">
-        {/* Top Modal Header */}
-        <div className="px-7 sm:px-10 py-5 flex items-center justify-between border-b border-[#E8ECE9] shrink-0">
-          <div className="flex items-center gap-3.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#42685B]/10 border border-[#B8C9BD]/60 text-[#42685B] flex items-center justify-center">
+    <div className="w-full space-y-6 pb-12 animate-fadeIn">
+      {/* Dedicated View Top Navigation Header */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <button
+            type="button"
+            onClick={handleRequestClose}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F8F9FA] text-[#2D3134] border border-slate-200 text-xs font-medium transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-[#64748B]" />
+            <span>Back to list</span>
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-[#2A8C82]/10 border border-[#2A8C82]/25 text-[#2A8C82] hidden sm:flex items-center justify-center">
               <ShoppingBag className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-base sm:text-lg font-semibold text-[#303C36]">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-lg sm:text-xl font-semibold text-[#2D3134] tracking-tight">
                   {isEditing
-                    ? `${editingProduct?.name}`
+                    ? `Edit Recipe: ${editingProduct?.name}`
                     : 'New Product Recipe'}
-                </h2>
+                </h1>
                 {editingProduct?.price_stale_flag && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FDF3F0] text-[#C66746] border border-[#E8A184]/50 text-xs font-medium">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#E78358]/10 text-[#E78358] border border-[#E78358]/30 text-xs font-medium">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     <span>Cost updated</span>
                   </span>
                 )}
               </div>
-              <p className="text-xs font-normal text-[#63726A]">
-                Materials, time, and selling price
+              <p className="text-xs font-normal text-[#64748B]">
+                Assemble materials, packaging, handcrafting time, and pricing rule
               </p>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-full text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
+      </div>
 
-        {/* Breathable Split-View Body (1 col stacked on mobile, 12-col split on desktop) */}
-        <form
-          onSubmit={handleSubmit}
-          className="flex-1 overflow-y-auto px-4 sm:px-10 py-5 sm:py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10"
-        >
+      {/* Dedicated Full-Height Form Body (No Constrained Vertical Overflow) */}
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-visible"
+      >
+        <div className="p-6 sm:p-8 lg:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
           {/* LEFT COLUMN: CLEAN LIST-ROW BILL OF MATERIALS (6 cols) */}
           <div className="lg:col-span-6 space-y-8">
             {error && (
@@ -381,10 +442,10 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
               </div>
             )}
 
-            {/* Product Name & Category (Full-Width Stacked Rows for Long Titles) */}
-            <div className="space-y-4">
+            {/* Product Name & Category */}
+            <div className="space-y-5">
               <div>
-                <label className="block text-xs font-normal text-[#63726A] mb-1.5">
+                <label className="block text-xs font-medium text-[#2D3134] mb-2">
                   Product Name
                 </label>
                 <input
@@ -393,12 +454,12 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g., Floral Hardcover Spiral Planner A5 - 2026 Edition"
-                  className="w-full px-4 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-medium text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none transition-all"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-2xl text-sm font-medium text-[#2D3134] placeholder:text-[#64748B] transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-normal text-[#63726A] mb-1.5">
+                <label className="block text-xs font-medium text-[#2D3134] mb-2">
                   Product Category
                 </label>
                 <CategoryCombobox
@@ -410,15 +471,15 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
               </div>
             </div>
 
-            {/* SECTION 1: MATERIALS USED (Clean List Rows) */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#E8ECE9]">
+            {/* SECTION 1: MATERIALS USED */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
                 <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-[#E8A184]" />
-                  <h3 className="text-sm font-medium text-[#303C36]">
+                  <Layers className="w-4 h-4 text-[#E78358]" />
+                  <h3 className="text-sm font-semibold text-[#2D3134]">
                     Materials Used
                   </h3>
-                  <span className="text-xs font-normal text-[#63726A]">
+                  <span className="text-xs font-medium text-[#64748B]">
                     {formatCurrency(liveSummary.total_materials_cost)}
                   </span>
                 </div>
@@ -427,19 +488,19 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                   type="button"
                   onClick={handleAddMaterialLine}
                   disabled={materialsCatalog.length === 0}
-                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#FAFBFA] border border-[#E8ECE9] hover:border-[#B8C9BD] disabled:opacity-40 text-[#303C36] text-xs font-medium transition-all"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-[#F8F9FA] hover:border-[#2A8C82]/40 disabled:opacity-40 text-[#2D3134] text-xs font-medium transition-all"
                 >
-                  <Plus className="w-3 h-3 text-[#42685B]" />
+                  <Plus className="w-3.5 h-3.5 text-[#2A8C82]" />
                   <span>Add Material</span>
                 </button>
               </div>
 
               {materialLines.length === 0 ? (
-                <div className="py-5 text-center text-xs text-[#63726A] font-normal">
+                <div className="py-5 text-center text-xs text-[#64748B] font-normal bg-[#F8F9FA] rounded-2xl border border-dashed border-slate-200">
                   No materials added yet.
                 </div>
               ) : (
-                <div className="divide-y divide-[#E8ECE9]">
+                <div className="divide-y divide-slate-200">
                   {materialLines.map((line, index) => {
                     const mat = materialsCatalog.find(
                       (m) => m.id === line.material_id
@@ -450,7 +511,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                     return (
                       <div
                         key={`${line.material_id}-${index}`}
-                        className="py-2.5 grid grid-cols-1 sm:grid-cols-12 items-center gap-2.5"
+                        className="py-3 grid grid-cols-1 sm:grid-cols-12 items-center gap-2.5"
                       >
                         <div className="sm:col-span-6">
                           <select
@@ -462,7 +523,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-medium text-[#303C36] focus:outline-none transition-all"
+                            className="w-full px-3 py-2.5 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-xl text-xs font-medium text-[#2D3134] transition-all"
                           >
                             {materialsCatalog.map((m) => (
                               <option key={m.id} value={m.id}>
@@ -487,15 +548,15 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-medium text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none text-right transition-all"
+                            className="w-full px-3 py-2.5 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-xl text-xs font-medium text-[#2D3134] placeholder:text-[#64748B] text-right transition-all"
                           />
-                          <span className="text-[11px] font-normal text-[#63726A] shrink-0">
+                          <span className="text-[11px] font-normal text-[#64748B] shrink-0">
                             {mat?.purchase_unit || 'un'}
                           </span>
                         </div>
 
                         <div className="sm:col-span-2 text-right">
-                          <span className="text-xs font-medium text-[#303C36]">
+                          <span className="text-xs font-semibold text-[#2D3134]">
                             {formatCurrency(lineCost, true)}
                           </span>
                         </div>
@@ -504,7 +565,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleRemoveMaterialLine(index)}
-                            className="text-[#63726A] hover:text-rose-500 hover:bg-rose-50 rounded-lg p-1 transition-colors"
+                            className="text-[#64748B] hover:text-rose-500 hover:bg-rose-50 rounded-lg p-1.5 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -516,15 +577,15 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
               )}
             </div>
 
-            {/* SECTION 2: PACKAGING USED (Clean List Rows) */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#E8ECE9]">
+            {/* SECTION 2: PACKAGING USED */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
                 <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[#B8C9BD]" />
-                  <h3 className="text-sm font-medium text-[#303C36]">
+                  <Package className="w-4 h-4 text-[#F4B266]" />
+                  <h3 className="text-sm font-semibold text-[#2D3134]">
                     Packaging Used
                   </h3>
-                  <span className="text-xs font-normal text-[#63726A]">
+                  <span className="text-xs font-medium text-[#64748B]">
                     {formatCurrency(liveSummary.total_packaging_cost)}
                   </span>
                 </div>
@@ -533,19 +594,19 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                   type="button"
                   onClick={handleAddPackagingLine}
                   disabled={packagingCatalog.length === 0}
-                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#FAFBFA] border border-[#E8ECE9] hover:border-[#B8C9BD] disabled:opacity-40 text-[#303C36] text-xs font-medium transition-all"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-[#F8F9FA] hover:border-[#2A8C82]/40 disabled:opacity-40 text-[#2D3134] text-xs font-medium transition-all"
                 >
-                  <Plus className="w-3 h-3 text-[#42685B]" />
+                  <Plus className="w-3.5 h-3.5 text-[#2A8C82]" />
                   <span>Add Packaging</span>
                 </button>
               </div>
 
               {packagingLines.length === 0 ? (
-                <div className="py-5 text-center text-xs text-[#63726A] font-normal">
+                <div className="py-5 text-center text-xs text-[#64748B] font-normal bg-[#F8F9FA] rounded-2xl border border-dashed border-slate-200">
                   No packaging items added yet.
                 </div>
               ) : (
-                <div className="divide-y divide-[#E8ECE9]">
+                <div className="divide-y divide-slate-200">
                   {packagingLines.map((line, index) => {
                     const pkg = packagingCatalog.find(
                       (p) => p.id === line.packaging_id
@@ -556,7 +617,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                     return (
                       <div
                         key={`${line.packaging_id}-${index}`}
-                        className="py-2.5 grid grid-cols-1 sm:grid-cols-12 items-center gap-2.5"
+                        className="py-3 grid grid-cols-1 sm:grid-cols-12 items-center gap-2.5"
                       >
                         <div className="sm:col-span-6">
                           <select
@@ -568,7 +629,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-medium text-[#303C36] focus:outline-none transition-all"
+                            className="w-full px-3 py-2.5 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-xl text-xs font-medium text-[#2D3134] transition-all"
                           >
                             {packagingCatalog.map((p) => (
                               <option key={p.id} value={p.id}>
@@ -593,15 +654,15 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-medium text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none text-right transition-all"
+                            className="w-full px-3 py-2.5 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-xl text-xs font-medium text-[#2D3134] placeholder:text-[#64748B] text-right transition-all"
                           />
-                          <span className="text-[11px] font-normal text-[#63726A] shrink-0">
+                          <span className="text-[11px] font-normal text-[#64748B] shrink-0">
                             {pkg?.purchase_unit || 'un'}
                           </span>
                         </div>
 
                         <div className="sm:col-span-2 text-right">
-                          <span className="text-xs font-medium text-[#303C36]">
+                          <span className="text-xs font-semibold text-[#2D3134]">
                             {formatCurrency(lineCost, true)}
                           </span>
                         </div>
@@ -610,7 +671,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleRemovePackagingLine(index)}
-                            className="text-[#63726A] hover:text-rose-500 hover:bg-rose-50 rounded-lg p-1 transition-colors"
+                            className="text-[#64748B] hover:text-rose-500 hover:bg-rose-50 rounded-lg p-1.5 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -622,15 +683,15 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
               )}
             </div>
 
-            {/* SECTION 3: LABOR TIME (Clean List Rows) */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#E8ECE9]">
+            {/* SECTION 3: LABOR TIME */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-[#42685B]" />
-                  <h3 className="text-sm font-medium text-[#303C36]">
+                  <Clock className="w-4 h-4 text-[#2A8C82]" />
+                  <h3 className="text-sm font-semibold text-[#2D3134]">
                     Labor Time
                   </h3>
-                  <span className="text-xs font-normal text-[#63726A]">
+                  <span className="text-xs font-medium text-[#64748B]">
                     {formatCurrency(liveSummary.total_labor_cost)}
                   </span>
                 </div>
@@ -639,19 +700,19 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                   type="button"
                   onClick={handleAddLaborLine}
                   disabled={laborCatalog.length === 0}
-                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#FAFBFA] border border-[#E8ECE9] hover:border-[#B8C9BD] disabled:opacity-40 text-[#303C36] text-xs font-medium transition-all"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-[#F8F9FA] hover:border-[#2A8C82]/40 disabled:opacity-40 text-[#2D3134] text-xs font-medium transition-all"
                 >
-                  <Plus className="w-3 h-3 text-[#42685B]" />
+                  <Plus className="w-3.5 h-3.5 text-[#2A8C82]" />
                   <span>Add Labor Time</span>
                 </button>
               </div>
 
               {laborLines.length === 0 ? (
-                <div className="py-5 text-center text-xs text-[#63726A] font-normal">
+                <div className="py-5 text-center text-xs text-[#64748B] font-normal bg-[#F8F9FA] rounded-2xl border border-dashed border-slate-200">
                   No labor steps added yet.
                 </div>
               ) : (
-                <div className="divide-y divide-[#E8ECE9]">
+                <div className="divide-y divide-slate-200">
                   {laborLines.map((line, index) => {
                     const lab = laborCatalog.find((l) => l.id === line.labor_id);
                     const mins = parseFloat(line.minutes_spent) || 0;
@@ -660,7 +721,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                     return (
                       <div
                         key={`${line.labor_id}-${index}`}
-                        className="py-2.5 grid grid-cols-1 sm:grid-cols-12 items-center gap-2.5"
+                        className="py-3 grid grid-cols-1 sm:grid-cols-12 items-center gap-2.5"
                       >
                         <div className="sm:col-span-6">
                           <select
@@ -672,7 +733,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-medium text-[#303C36] focus:outline-none transition-all"
+                            className="w-full px-3 py-2.5 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-xl text-xs font-medium text-[#2D3134] transition-all"
                           >
                             {laborCatalog.map((l) => (
                               <option key={l.id} value={l.id}>
@@ -696,15 +757,15 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                                 e.target.value
                               )
                             }
-                            className="w-full px-3 py-2 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-medium text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none text-right transition-all"
+                            className="w-full px-3 py-2.5 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-xl text-xs font-medium text-[#2D3134] placeholder:text-[#64748B] text-right transition-all"
                           />
-                          <span className="text-[11px] font-normal text-[#63726A] shrink-0">
+                          <span className="text-[11px] font-normal text-[#64748B] shrink-0">
                             min
                           </span>
                         </div>
 
                         <div className="sm:col-span-2 text-right">
-                          <span className="text-xs font-medium text-[#303C36]">
+                          <span className="text-xs font-semibold text-[#2D3134]">
                             {formatCurrency(lineCost)}
                           </span>
                         </div>
@@ -713,7 +774,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleRemoveLaborLine(index)}
-                            className="text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] rounded-lg p-1 transition-colors"
+                            className="text-[#64748B] hover:text-rose-500 hover:bg-rose-50 rounded-lg p-1.5 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -728,12 +789,12 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
 
           {/* RIGHT COLUMN: PRICING PIPELINE & TARGET PRICE SUMMARY CARD (6 cols) */}
           <div className="lg:col-span-6">
-            <div className="bg-[#FAFBFA] rounded-3xl p-4 sm:p-6 border border-[#E8ECE9] space-y-5">
-              {/* Active Rule Selector (Select-Only) */}
+            <div className="bg-[#F8F9FA] rounded-2xl p-5 sm:p-6 border border-slate-200 space-y-5">
+              {/* Active Rule Selector */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-[#42685B]" />
-                  <span className="text-sm font-medium text-[#303C36]">
+                  <Sliders className="w-4 h-4 text-[#2A8C82]" />
+                  <span className="text-sm font-semibold text-[#2D3134]">
                     Pricing Rule
                   </span>
                 </div>
@@ -741,7 +802,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 <select
                   value={activeRule?.id || ''}
                   onChange={(e) => setSelectedRuleId(e.target.value)}
-                  className="px-3.5 py-2 sm:py-1.5 bg-white border border-[#E8ECE9] rounded-full text-xs font-medium text-[#303C36] focus:outline-none shadow-2xs"
+                  className="px-3.5 py-2 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-xl text-xs font-medium text-[#2D3134] shadow-xs transition-all"
                 >
                   {pricingRules.map((rule) => (
                     <option key={rule.id} value={rule.id}>
@@ -752,19 +813,21 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
               </div>
 
               {/* Read-Only Informative Price Steps Pipeline */}
-              <div className="bg-white rounded-2xl p-4 border border-[#E8ECE9] space-y-3">
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-normal text-[#63726A]">
+                  <span className="text-xs font-normal text-[#64748B]">
                     Pricing Pipeline (Price Steps)
                   </span>
                   {onManageRules && (
                     <button
                       type="button"
-                      onClick={() => {
-                        onClose();
-                        onManageRules();
-                      }}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-[#42685B] hover:text-[#36544a] transition-colors"
+                      onClick={() =>
+                        attemptActionWithGuard(() => {
+                          onClose();
+                          onManageRules();
+                        })
+                      }
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[#2A8C82] hover:text-[#23736B] transition-colors"
                     >
                       <span>Manage rules in Pricing Rules tab</span>
                       <ArrowUpRight className="w-3.5 h-3.5" />
@@ -786,14 +849,14 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                           <span
                             className={
                               isMarginBlock
-                                ? 'bg-[#FDF3F0] border border-[#E8A184]/50 text-[#C66746] text-xs px-2.5 py-1 rounded-full font-medium'
-                                : 'bg-[#FAFBFA] border border-[#E8ECE9] text-[#303C36] text-xs px-2.5 py-1 rounded-full font-medium'
+                                ? 'bg-[#E78358]/10 border border-[#E78358]/30 text-[#E78358] text-xs px-2.5 py-1 rounded-full font-medium'
+                                : 'bg-[#F8F9FA] border border-slate-200 text-[#2D3134] text-xs px-2.5 py-1 rounded-full font-medium'
                             }
                           >
                             {formatBlockPillLabel(block)}
                           </span>
                           {idx < activeRule.blocks.length - 1 && (
-                            <span className="text-[#63726A] font-normal text-xs px-0.5">
+                            <span className="text-[#64748B] font-normal text-xs px-0.5">
                               +
                             </span>
                           )}
@@ -804,7 +867,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 )}
 
                 {/* Read-Only Step Breakdown */}
-                <div className="divide-y divide-[#E8ECE9] pt-1">
+                <div className="divide-y divide-slate-200 pt-1">
                   {pipelineEvaluation.steps.map((step, idx) => {
                     const isDiscount = step.block.type === 'DISCOUNT';
                     const isBase =
@@ -817,10 +880,10 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                         className="py-2 flex items-center justify-between text-xs"
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="w-4 h-4 rounded-full bg-[#FAFBFA] border border-[#E8ECE9] text-[#63726A] text-[10px] font-medium flex items-center justify-center shrink-0">
+                          <span className="w-4 h-4 rounded-full bg-[#F8F9FA] border border-slate-200 text-[#64748B] text-[10px] font-medium flex items-center justify-center shrink-0">
                             {idx + 1}
                           </span>
-                          <span className="text-[#303C36] font-normal truncate">
+                          <span className="text-[#2D3134] font-normal truncate">
                             {step.block.label}
                           </span>
                         </div>
@@ -830,14 +893,14 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                               isDiscount
                                 ? 'text-rose-600'
                                 : isBase
-                                ? 'text-[#63726A]'
-                                : 'text-[#C66746]'
+                                ? 'text-[#64748B]'
+                                : 'text-[#E78358]'
                             }`}
                           >
                             {step.deltaAmount >= 0 ? '+' : ''}
                             {formatCurrency(step.deltaAmount)}
                           </span>
-                          <span className="text-[11px] font-normal text-[#63726A] w-16 text-right">
+                          <span className="text-[11px] font-normal text-[#64748B] w-16 text-right">
                             {formatCurrency(step.runningSubtotal)}
                           </span>
                         </div>
@@ -847,48 +910,48 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 </div>
               </div>
 
-              {/* TARGET PRICE SUMMARY CARD (Luminous Hero Price Card) */}
-              <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#E8ECE9] space-y-5">
+              {/* TARGET PRICE SUMMARY CARD */}
+              <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200 space-y-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#63726A]">
-                      <Sparkles className="w-3.5 h-3.5 text-[#E8A184]" />
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#64748B]">
+                      <Sparkles className="w-3.5 h-3.5 text-[#F4B266]" />
                       <span>Suggested Price ({activeRule?.name})</span>
                     </span>
-                    <div className="text-3xl sm:text-4xl font-semibold text-[#42685B] tracking-tight mt-1">
+                    <div className="text-3xl sm:text-4xl font-bold text-[#2A8C82] tracking-tight mt-1">
                       {formatCurrency(pipelineEvaluation.suggestedRetailPrice)}
                     </div>
                   </div>
 
-                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#FDF3F0] text-[#C66746] border border-[#E8A184]/50 text-xs font-semibold shrink-0">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#E78358]/10 text-[#E78358] border border-[#E78358]/30 text-xs font-semibold shrink-0">
                     +{pipelineEvaluation.netMarginPercent.toFixed(0)}% margin
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-[#E8ECE9] text-xs">
+                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-200 text-xs">
                   <div>
-                    <span className="text-[#63726A] font-normal block">
+                    <span className="text-[#64748B] font-normal block">
                       Cost to Make
                     </span>
-                    <span className="text-sm font-semibold text-[#303C36] mt-0.5 block">
+                    <span className="text-sm font-semibold text-[#2D3134] mt-0.5 block">
                       {formatCurrency(pipelineEvaluation.totalProductionCost)}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-[#63726A] font-normal block">
+                    <span className="text-[#64748B] font-normal block">
                       Your Profit
                     </span>
-                    <span className="text-sm font-semibold text-[#C66746] mt-0.5 block">
+                    <span className="text-sm font-semibold text-[#E78358] mt-0.5 block">
                       {formatCurrency(pipelineEvaluation.netProfit)}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-[#63726A] font-normal block">
+                    <span className="text-[#64748B] font-normal block">
                       Fees
                     </span>
-                    <span className="text-sm font-semibold text-[#42685B] mt-0.5 block">
+                    <span className="text-sm font-semibold text-[#2A8C82] mt-0.5 block">
                       {formatCurrency(pipelineEvaluation.platformFeesTotal)}
                     </span>
                   </div>
@@ -896,14 +959,14 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
               </div>
 
               {/* Lightweight Batch / Tier Table */}
-              <div className="bg-white rounded-2xl p-4 border border-[#E8ECE9] space-y-2">
-                <span className="text-xs font-normal text-[#63726A] block px-1">
-                  Quantity Discounts
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-2">
+                <span className="text-xs font-medium text-[#2D3134] block px-1">
+                  Quantity Discounts &amp; Batch Margins
                 </span>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-[#E8ECE9] text-[#63726A] font-normal">
+                      <tr className="border-b border-slate-200 text-[#64748B] font-normal">
                         <th className="py-2 px-2.5 font-normal">Quantity</th>
                         <th className="py-2 px-2.5 font-normal">Unit Price</th>
                         <th className="py-2 px-2.5 font-normal">Total</th>
@@ -912,21 +975,21 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#E8ECE9]">
+                    <tbody className="divide-y divide-slate-200">
                       {batchTiers.map((tier) => (
                         <tr key={tier.qty}>
-                          <td className="py-2 px-2.5 font-medium text-[#303C36]">
+                          <td className="py-2 px-2.5 font-medium text-[#2D3134]">
                             {tier.label}
                           </td>
-                          <td className="py-2 px-2.5 font-medium text-[#303C36]">
+                          <td className="py-2 px-2.5 font-medium text-[#2D3134]">
                             {formatCurrency(tier.unitPrice)}
                           </td>
-                          <td className="py-2 px-2.5 font-normal text-[#63726A]">
+                          <td className="py-2 px-2.5 font-normal text-[#64748B]">
                             {formatCurrency(tier.totalRevenue)}
                           </td>
-                          <td className="py-2 px-2.5 text-right font-medium text-[#42685B]">
+                          <td className="py-2 px-2.5 text-right font-medium text-[#2A8C82]">
                             {formatCurrency(tier.totalProfit)}{' '}
-                            <span className="text-[11px] font-normal text-[#63726A]">
+                            <span className="text-[11px] font-normal text-[#64748B]">
                               ({tier.marginPercent.toFixed(0)}%)
                             </span>
                           </td>
@@ -936,30 +999,97 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                   </table>
                 </div>
               </div>
-
-              {/* Footer Save / Cancel */}
-              <div className="pt-2 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 rounded-full text-xs font-normal text-[#63726A] hover:text-[#303C36] hover:bg-white transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-1.5 bg-[#42685B] hover:bg-[#36544a] text-white font-medium text-xs sm:text-sm px-6 py-2.5 rounded-full shadow-xs transition-all"
-                >
-                  <Check className="w-3.5 h-3.5 text-[#E8A184]" />
-                  <span>
-                    {isEditing ? 'Save Recipe' : 'Create Product'}
-                  </span>
-                </button>
-              </div>
             </div>
           </div>
-        </form>
-      </div>
+        </div>
+
+        {/* Sticky Action Footer — Always Pinned & Visible */}
+        <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 sm:px-10 py-4 rounded-b-2xl flex items-center justify-between gap-4">
+          <span className="text-xs font-normal text-[#64748B]">
+            {isDirty ? (
+              <span className="inline-flex items-center gap-1.5 text-[#E78358] font-medium">
+                <span className="w-2 h-2 rounded-full bg-[#E78358]" />
+                <span>Unsaved changes</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#F4B266]" />
+                <span>Recipe ready</span>
+              </span>
+            )}
+          </span>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleRequestClose}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-[#F8F9FA] text-xs sm:text-sm font-medium text-[#64748B] hover:text-[#2D3134] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 bg-[#2A8C82] hover:bg-[#23736B] text-white font-semibold text-xs sm:text-sm px-6 py-2.5 rounded-xl shadow-sm transition-all"
+            >
+              <Check className="w-4 h-4 text-[#F4B266]" />
+              <span>Save Changes</span>
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {/* Unsaved Changes Confirmation Dialog */}
+      {showDiscardConfirm && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2D3134]/30 backdrop-blur-sm animate-fadeIn"
+        >
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-lg max-w-md w-full p-6 space-y-5">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-[#E78358]/10 border border-[#E78358]/30 text-[#E78358] flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-[#2D3134]">
+                  Discard unsaved changes? Any edits will be lost.
+                </h3>
+                <p className="text-xs font-normal text-[#64748B] leading-relaxed">
+                  You have uncommitted changes in this recipe. If you leave now, your edits will not be saved.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDiscardConfirm(false);
+                  setPendingAction(null);
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-[#F8F9FA] text-xs font-medium text-[#2D3134] transition-colors"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDiscardConfirm(false);
+                  onDirtyChange?.(false);
+                  if (pendingAction) {
+                    pendingAction();
+                  } else {
+                    onClose();
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-[#E78358] hover:bg-[#d67147] text-white text-xs font-semibold shadow-sm transition-colors"
+              >
+                Discard Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

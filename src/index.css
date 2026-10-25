@@ -3,15 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --background: #FAFBFA;
+  --background: #F8F9FA;
   --surface: #FFFFFF;
-  --primary: #42685B;
-  --primary-hover: #36544a;
-  --secondary: #B8C9BD;
-  --accent: #E8A184;
-  --text-main: #303C36;
-  --text-muted: #63726A;
-  --border-subtle: #E8ECE9;
+  --text-main: #2D3134;
+  --text-muted: #64748B;
+  --primary: #2A8C82;
+  --primary-hover: #23736B;
+  --accent-warm: #E78358;
+  --accent-amber: #F4B266;
+  --border-subtle: #E2E8F0;
 }
 
 @layer base {
@@ -33,12 +33,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #B8C9BD;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #63726A;
+  background: #64748B;
 }
 
 .no-scrollbar::-webkit-scrollbar,

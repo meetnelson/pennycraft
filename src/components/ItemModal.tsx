@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  X,
+  ArrowLeft,
   Layers,
   Package,
   Clock,
@@ -10,6 +10,7 @@ import {
   Sparkles,
   ShoppingBag,
   Link2,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   AttentionType,
@@ -38,6 +39,7 @@ interface ItemModalProps {
   packagingCategories: string[];
   onClose: () => void;
   onSwitchToCreateProduct?: () => void;
+  onDirtyChange?: (isDirty: boolean) => void;
   onSaveMaterial: (
     data: {
       name: string;
@@ -78,6 +80,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
   packagingCategories,
   onClose,
   onSwitchToCreateProduct,
+  onDirtyChange,
   onSaveMaterial,
   onSavePackaging,
   onSaveLabor,
@@ -98,42 +101,107 @@ export const ItemModal: React.FC<ItemModalProps> = ({
   const [hourlyRate, setHourlyRate] = useState<string>('');
 
   const [error, setError] = useState<string | null>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  const initialSnapshot = useMemo(() => {
+    if (!editingItem) {
+      return {
+        name: '',
+        category: '',
+        purchaseUnit: 'un' as PurchaseUnit,
+        purchaseQty: '',
+        pricePaid: '',
+        supplierUrl: '',
+        attentionType: 'Exclusive / Focused' as AttentionType,
+        hourlyRate: '',
+      };
+    }
+    if ('hourly_rate' in editingItem) {
+      return {
+        name: editingItem.name,
+        category: '',
+        purchaseUnit: 'un' as PurchaseUnit,
+        purchaseQty: '',
+        pricePaid: '',
+        supplierUrl: '',
+        attentionType: editingItem.attention_type,
+        hourlyRate: String(editingItem.hourly_rate),
+      };
+    }
+    return {
+      name: editingItem.name,
+      category: editingItem.category,
+      purchaseUnit: editingItem.purchase_unit,
+      purchaseQty: String(editingItem.purchase_qty),
+      pricePaid: String(editingItem.price_paid),
+      supplierUrl: editingItem.supplier_url || '',
+      attentionType: 'Exclusive / Focused' as AttentionType,
+      hourlyRate: '',
+    };
+  }, [editingItem]);
 
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
+    setShowDiscardConfirm(false);
+    setPendingAction(null);
     setEntityType(initialEntityType);
 
-    if (editingItem) {
-      setName(editingItem.name);
-      if ('hourly_rate' in editingItem) {
-        setAttentionType(editingItem.attention_type);
-        setHourlyRate(String(editingItem.hourly_rate));
-        setSupplierUrl('');
-      } else {
-        setCategory(editingItem.category);
-        setPurchaseQty(String(editingItem.purchase_qty));
-        setPricePaid(String(editingItem.price_paid));
-        setPurchaseUnit(editingItem.purchase_unit);
-        setSupplierUrl(editingItem.supplier_url || '');
-      }
-    } else {
-      setName('');
-      setCategory('');
-      setPurchaseUnit('un');
-      setPurchaseQty('');
-      setPricePaid('');
-      setSupplierUrl('');
-      setAttentionType('Exclusive / Focused');
-      setHourlyRate('');
+    setName(initialSnapshot.name);
+    setCategory(initialSnapshot.category);
+    setPurchaseUnit(initialSnapshot.purchaseUnit);
+    setPurchaseQty(initialSnapshot.purchaseQty);
+    setPricePaid(initialSnapshot.pricePaid);
+    setSupplierUrl(initialSnapshot.supplierUrl);
+    setAttentionType(initialSnapshot.attentionType);
+    setHourlyRate(initialSnapshot.hourlyRate);
+  }, [isOpen, initialEntityType, initialSnapshot]);
+
+  const isDirty = useMemo(() => {
+    if (!isOpen) return false;
+    if (entityType === 'labor') {
+      return (
+        name !== initialSnapshot.name ||
+        attentionType !== initialSnapshot.attentionType ||
+        hourlyRate !== initialSnapshot.hourlyRate
+      );
     }
+    return (
+      name !== initialSnapshot.name ||
+      category !== initialSnapshot.category ||
+      purchaseUnit !== initialSnapshot.purchaseUnit ||
+      purchaseQty !== initialSnapshot.purchaseQty ||
+      pricePaid !== initialSnapshot.pricePaid ||
+      supplierUrl !== initialSnapshot.supplierUrl
+    );
   }, [
     isOpen,
-    initialEntityType,
-    editingItem,
-    materialCategories,
-    packagingCategories,
+    entityType,
+    name,
+    category,
+    purchaseUnit,
+    purchaseQty,
+    pricePaid,
+    supplierUrl,
+    attentionType,
+    hourlyRate,
+    initialSnapshot,
   ]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!isOpen || !isDirty) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isOpen, isDirty]);
 
   if (!isOpen) return null;
 
@@ -146,16 +214,31 @@ export const ItemModal: React.FC<ItemModalProps> = ({
   const liveMinuteRate = calculateMinuteRate(parsedHourly);
   const selectedUnitMeta = getUnitOption(purchaseUnit);
 
+  const attemptActionWithGuard = (action: () => void) => {
+    if (isDirty) {
+      setPendingAction(() => action);
+      setShowDiscardConfirm(true);
+    } else {
+      action();
+    }
+  };
+
+  const handleRequestClose = () => {
+    attemptActionWithGuard(onClose);
+  };
+
   const handleEntityTypeSwitch = (nextType: ModalEntityType) => {
-    if (isEditing) return;
-    setEntityType(nextType);
-    setError(null);
-    setName('');
-    setCategory('');
-    setPurchaseQty('');
-    setPricePaid('');
-    setSupplierUrl('');
-    setHourlyRate('');
+    if (isEditing || nextType === entityType) return;
+    attemptActionWithGuard(() => {
+      setEntityType(nextType);
+      setError(null);
+      setName('');
+      setCategory('');
+      setPurchaseQty('');
+      setPricePaid('');
+      setSupplierUrl('');
+      setHourlyRate('');
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -180,6 +263,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
         },
         editingItem?.id
       );
+      onDirtyChange?.(false);
       onClose();
       return;
     }
@@ -231,115 +315,121 @@ export const ItemModal: React.FC<ItemModalProps> = ({
       );
     }
 
+    onDirtyChange?.(false);
     onClose();
   };
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#303C36]/20 backdrop-blur-sm animate-fadeIn"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-white rounded-3xl shadow-[0_14px_40px_rgb(0,0,0,0.06)] w-full max-w-xl overflow-hidden border border-[#E8ECE9]">
-        {/* Modal Header */}
-        <div className="px-7 pt-7 pb-5 flex items-center justify-between border-b border-[#E8ECE9]">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-[#42685B]/10 border border-[#B8C9BD]/60 text-[#42685B] flex items-center justify-center">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-semibold text-[#303C36]">
-                {isEditing ? 'Edit Studio Item' : 'Add New Studio Item'}
-              </h2>
-              <p className="text-xs font-normal text-[#63726A]">
-                {isEditing
-                  ? 'Updating price refreshes freshness date & flags affected products'
-                  : 'Automatic unit cost across Imperial, Metric & Area units'}
-              </p>
-            </div>
-          </div>
+  const entityLabel =
+    entityType === 'materials'
+      ? 'Material'
+      : entityType === 'packaging'
+      ? 'Packaging'
+      : 'Labor Rate';
 
+  return (
+    <div className="w-full max-w-3xl mx-auto space-y-6 pb-12 animate-fadeIn">
+      {/* Dedicated View Top Navigation & Sticky Header */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
           <button
             type="button"
-            onClick={onClose}
-            className="p-2 rounded-full text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] transition-colors"
+            onClick={handleRequestClose}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F8F9FA] text-[#2D3134] border border-slate-200 text-xs font-medium transition-colors"
           >
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-3.5 h-3.5 text-[#64748B]" />
+            <span>Back to list</span>
           </button>
+
+          <div>
+            <h1 className="text-lg sm:text-xl font-semibold text-[#2D3134] tracking-tight">
+              {isEditing
+                ? `Edit ${entityLabel}: ${editingItem?.name}`
+                : `Add New ${entityLabel}`}
+            </h1>
+            <p className="text-xs font-normal text-[#64748B]">
+              {isEditing
+                ? 'Updating price refreshes freshness date & flags affected products'
+                : 'Automatic unit cost across Imperial, Metric & Area units'}
+            </p>
+          </div>
         </div>
 
         {/* Entity Switcher Pills (only shown when adding a new item) */}
         {!isEditing && (
-          <div className="px-7 pt-5">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {onSwitchToCreateProduct && (
-                <button
-                  type="button"
-                  onClick={() => {
+          <div className="flex flex-wrap items-center gap-1.5">
+            {onSwitchToCreateProduct && (
+              <button
+                type="button"
+                onClick={() =>
+                  attemptActionWithGuard(() => {
                     onClose();
                     onSwitchToCreateProduct();
-                  }}
-                  className="inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-full text-xs font-normal text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] transition-all"
-                >
-                  <ShoppingBag className="w-3.5 h-3.5 text-[#E8A184]" />
-                  <span>Product</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => handleEntityTypeSwitch('materials')}
-                className={`inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-full text-xs transition-all ${
-                  entityType === 'materials'
-                    ? 'bg-[#42685B]/10 text-[#42685B] font-semibold border border-[#B8C9BD]/60'
-                    : 'text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] font-normal'
-                }`}
+                  })
+                }
+                className="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-normal text-[#64748B] hover:text-[#2D3134] hover:bg-[#F8F9FA] border border-transparent hover:border-slate-200 transition-all"
               >
-                <Layers className="w-3.5 h-3.5 text-[#E8A184]" />
-                <span>Material</span>
+                <ShoppingBag className="w-3.5 h-3.5 text-[#E78358]" />
+                <span>Product</span>
               </button>
+            )}
 
-              <button
-                type="button"
-                onClick={() => handleEntityTypeSwitch('packaging')}
-                className={`inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-full text-xs transition-all ${
-                  entityType === 'packaging'
-                    ? 'bg-[#42685B]/10 text-[#42685B] font-semibold border border-[#B8C9BD]/60'
-                    : 'text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] font-normal'
-                }`}
-              >
-                <Package className="w-3.5 h-3.5 text-[#E8A184]" />
-                <span>Packaging</span>
-              </button>
+            <button
+              type="button"
+              onClick={() => handleEntityTypeSwitch('materials')}
+              className={`inline-flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs transition-all ${
+                entityType === 'materials'
+                  ? 'bg-[#2A8C82]/10 text-[#2A8C82] font-semibold border border-[#2A8C82]/25'
+                  : 'text-[#64748B] hover:text-[#2D3134] hover:bg-[#F8F9FA] font-normal'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-[#E78358]" />
+              <span>Material</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={() => handleEntityTypeSwitch('labor')}
-                className={`inline-flex items-center gap-1.5 py-1.5 px-3.5 rounded-full text-xs transition-all ${
-                  entityType === 'labor'
-                    ? 'bg-[#42685B]/10 text-[#42685B] font-semibold border border-[#B8C9BD]/60'
-                    : 'text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] font-normal'
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5 text-[#E8A184]" />
-                <span>Labor Rate</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => handleEntityTypeSwitch('packaging')}
+              className={`inline-flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs transition-all ${
+                entityType === 'packaging'
+                  ? 'bg-[#2A8C82]/10 text-[#2A8C82] font-semibold border border-[#2A8C82]/25'
+                  : 'text-[#64748B] hover:text-[#2D3134] hover:bg-[#F8F9FA] font-normal'
+              }`}
+            >
+              <Package className="w-3.5 h-3.5 text-[#F4B266]" />
+              <span>Packaging</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleEntityTypeSwitch('labor')}
+              className={`inline-flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs transition-all ${
+                entityType === 'labor'
+                  ? 'bg-[#2A8C82]/10 text-[#2A8C82] font-semibold border border-[#2A8C82]/25'
+                  : 'text-[#64748B] hover:text-[#2D3134] hover:bg-[#F8F9FA] font-normal'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5 text-[#2A8C82]" />
+              <span>Labor Rate</span>
+            </button>
           </div>
         )}
+      </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-7 space-y-5">
+      {/* Main Dedicated Clean Form Card */}
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-visible"
+      >
+        <div className="p-6 sm:p-8 lg:p-10 space-y-6">
           {error && (
-            <div className="p-3 rounded-2xl bg-rose-50/80 border border-rose-100 text-rose-700 text-xs font-medium">
+            <div className="p-3.5 rounded-2xl bg-rose-50/80 border border-rose-100 text-rose-700 text-xs font-medium">
               {error}
             </div>
           )}
 
           {/* Item Name */}
           <div>
-            <label className="block text-xs font-normal text-[#63726A] mb-1.5">
+            <label className="block text-xs font-medium text-[#2D3134] mb-2">
               {entityType === 'materials'
                 ? 'Material Name'
                 : entityType === 'packaging'
@@ -358,7 +448,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                   ? 'e.g., Small Kraft Mailer Box, Cotton Ribbon'
                   : 'e.g., Focused Manual Handcrafting'
               }
-              className="w-full px-4 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-normal text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none transition-all"
+              className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-2xl text-sm font-normal text-[#2D3134] placeholder:text-[#64748B] transition-all"
             />
           </div>
 
@@ -366,11 +456,11 @@ export const ItemModal: React.FC<ItemModalProps> = ({
             <>
               {/* Dynamic Category Combobox */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-normal text-[#63726A]">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-medium text-[#2D3134]">
                     Category
                   </label>
-                  <span className="text-[11px] font-normal text-[#63726A]">
+                  <span className="text-[11px] font-normal text-[#64748B]">
                     Type a new name to auto-save
                   </span>
                 </div>
@@ -391,10 +481,10 @@ export const ItemModal: React.FC<ItemModalProps> = ({
               </div>
 
               {/* Purchase Unit, Quantity, and Total Price Paid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Purchase Unit */}
                 <div>
-                  <label className="block text-xs font-normal text-[#63726A] mb-1.5">
+                  <label className="block text-xs font-medium text-[#2D3134] mb-2">
                     Purchase Unit
                   </label>
                   <select
@@ -402,7 +492,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                     onChange={(e) =>
                       setPurchaseUnit(e.target.value as PurchaseUnit)
                     }
-                    className="w-full px-3.5 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-medium text-[#303C36] focus:outline-none transition-all"
+                    className="w-full px-3.5 py-3 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-2xl text-sm font-medium text-[#2D3134] transition-all"
                   >
                     {PURCHASE_UNIT_GROUPS.map((grp) => (
                       <optgroup key={grp.group} label={grp.group}>
@@ -418,7 +508,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
 
                 {/* Purchase Quantity */}
                 <div>
-                  <label className="block text-xs font-normal text-[#63726A] mb-1.5">
+                  <label className="block text-xs font-medium text-[#2D3134] mb-2">
                     Package Qty ({purchaseUnit})
                   </label>
                   <input
@@ -429,17 +519,17 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                     value={purchaseQty}
                     onChange={(e) => setPurchaseQty(e.target.value)}
                     placeholder="e.g., 500"
-                    className="w-full px-3.5 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-medium text-[#303C36] focus:outline-none transition-all"
+                    className="w-full px-3.5 py-3 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-2xl text-sm font-medium text-[#2D3134] placeholder:text-[#64748B] transition-all"
                   />
                 </div>
 
                 {/* Price Paid */}
                 <div>
-                  <label className="block text-xs font-normal text-[#63726A] mb-1.5">
+                  <label className="block text-xs font-medium text-[#2D3134] mb-2">
                     Total Price Paid
                   </label>
                   <div className="relative">
-                    <DollarSign className="w-4 h-4 text-[#63726A] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <DollarSign className="w-4 h-4 text-[#64748B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="number"
                       step="0.01"
@@ -448,7 +538,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                       value={pricePaid}
                       onChange={(e) => setPricePaid(e.target.value)}
                       placeholder="45.00"
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-medium text-[#303C36] focus:outline-none transition-all"
+                      className="w-full pl-9 pr-3.5 py-3 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-2xl text-sm font-medium text-[#2D3134] placeholder:text-[#64748B] transition-all"
                     />
                   </div>
                 </div>
@@ -457,8 +547,8 @@ export const ItemModal: React.FC<ItemModalProps> = ({
               {/* Conversion & Package Quantity Presets */}
               {selectedUnitMeta &&
                 selectedUnitMeta.presetQuantities.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                    <span className="text-[11px] font-normal text-[#63726A] mr-1">
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[11px] font-normal text-[#64748B] mr-1">
                       {selectedUnitMeta.group} Presets:
                     </span>
                     {selectedUnitMeta.presetQuantities.map((preset) => {
@@ -470,8 +560,8 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                           onClick={() => setPurchaseQty(String(preset.qty))}
                           className={`px-3 py-1 rounded-full text-[11px] transition-all border ${
                             isActive
-                              ? 'bg-[#42685B] text-white border-[#42685B] font-medium'
-                              : 'bg-[#FAFBFA] text-[#63726A] border-[#E8ECE9] hover:text-[#303C36] hover:bg-[#B8C9BD]/20 font-normal'
+                              ? 'bg-[#2A8C82] text-white border-[#2A8C82] font-medium'
+                              : 'bg-white text-[#64748B] border-slate-200 hover:text-[#2D3134] hover:border-[#2A8C82]/40 font-normal'
                           }`}
                         >
                           {preset.label}
@@ -483,33 +573,33 @@ export const ItemModal: React.FC<ItemModalProps> = ({
 
               {/* Optional Supplier / Affiliate Link */}
               <div>
-                <label className="block text-xs font-normal text-[#63726A] mb-1.5">
-                  Where to buy / Link (Optional)
+                <label className="block text-xs font-medium text-[#2D3134] mb-2">
+                  Where to buy / Supplier Link (Optional)
                 </label>
                 <div className="relative">
-                  <Link2 className="w-4 h-4 text-[#63726A] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Link2 className="w-4 h-4 text-[#64748B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="url"
                     name="supplier_url"
                     value={supplierUrl}
                     onChange={(e) => setSupplierUrl(e.target.value)}
                     placeholder="https://..."
-                    className="w-full pl-9 pr-4 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-xs font-normal text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-2xl text-sm font-normal text-[#2D3134] placeholder:text-[#64748B] transition-all"
                   />
                 </div>
               </div>
 
               {/* Immediate Live Unit Cost Feedback */}
-              <div className="pt-4 border-t border-[#E8ECE9] flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-2xl bg-[#42685B]/10 border border-[#B8C9BD]/60 text-[#42685B] flex items-center justify-center shrink-0">
+              <div className="p-5 rounded-2xl bg-[#F8F9FA] border border-slate-200 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-[#2A8C82]/10 border border-[#2A8C82]/25 text-[#2A8C82] flex items-center justify-center shrink-0">
                     <Calculator className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-[#303C36]">
+                    <p className="text-xs sm:text-sm font-semibold text-[#2D3134]">
                       Auto-Calculated Unit Cost
                     </p>
-                    <p className="text-xs font-normal text-[#63726A]">
+                    <p className="text-xs font-normal text-[#64748B]">
                       {!isNaN(parsedPrice) &&
                       !isNaN(parsedQty) &&
                       parsedQty > 0
@@ -520,10 +610,10 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                 </div>
 
                 <div className="text-right">
-                  <span className="text-2xl font-semibold text-[#42685B]">
+                  <span className="text-2xl sm:text-3xl font-bold text-[#2A8C82]">
                     {formatCurrency(liveUnitCost, true)}
                   </span>
-                  <span className="block text-xs font-normal text-[#63726A]">
+                  <span className="block text-xs font-normal text-[#64748B]">
                     per {purchaseUnit}
                   </span>
                 </div>
@@ -533,7 +623,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
             /* Labor Rate Form Fields */
             <>
               <div>
-                <label className="block text-xs font-normal text-[#63726A] mb-1.5">
+                <label className="block text-xs font-medium text-[#2D3134] mb-2">
                   Attention Type
                 </label>
                 <select
@@ -541,7 +631,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                   onChange={(e) =>
                     setAttentionType(e.target.value as AttentionType)
                   }
-                  className="w-full px-4 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-medium text-[#303C36] focus:outline-none transition-all"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-2xl text-sm font-medium text-[#2D3134] transition-all"
                 >
                   <option value="Exclusive / Focused">
                     Exclusive / Focused
@@ -551,11 +641,11 @@ export const ItemModal: React.FC<ItemModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-normal text-[#63726A] mb-1.5">
+                <label className="block text-xs font-medium text-[#2D3134] mb-2">
                   Hourly Rate ($ / hr)
                 </label>
                 <div className="relative">
-                  <DollarSign className="w-4 h-4 text-[#63726A] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <DollarSign className="w-4 h-4 text-[#64748B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="number"
                     step="0.50"
@@ -564,25 +654,25 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                     value={hourlyRate}
                     onChange={(e) => setHourlyRate(e.target.value)}
                     placeholder="25.00"
-                    className="w-full pl-9 pr-16 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-medium text-[#303C36] focus:outline-none transition-all"
+                    className="w-full pl-9 pr-20 py-3 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-2xl text-sm font-medium text-[#2D3134] placeholder:text-[#64748B] transition-all"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-normal text-[#63726A]">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-normal text-[#64748B]">
                     per hour
                   </span>
                 </div>
               </div>
 
               {/* Immediate Live Minute Rate Feedback */}
-              <div className="pt-4 border-t border-[#E8ECE9] flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-2xl bg-[#42685B]/10 border border-[#B8C9BD]/60 text-[#42685B] flex items-center justify-center shrink-0">
+              <div className="p-5 rounded-2xl bg-[#F8F9FA] border border-slate-200 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-[#2A8C82]/10 border border-[#2A8C82]/25 text-[#2A8C82] flex items-center justify-center shrink-0">
                     <Calculator className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-[#303C36]">
+                    <p className="text-xs sm:text-sm font-semibold text-[#2D3134]">
                       Auto-Calculated Minute Rate
                     </p>
-                    <p className="text-xs font-normal text-[#63726A]">
+                    <p className="text-xs font-normal text-[#64748B]">
                       {!isNaN(parsedHourly) && parsedHourly > 0
                         ? `${formatCurrency(parsedHourly)} ÷ 60 minutes`
                         : 'Enter an hourly rate'}
@@ -591,36 +681,105 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                 </div>
 
                 <div className="text-right">
-                  <span className="text-2xl font-semibold text-[#42685B]">
+                  <span className="text-2xl sm:text-3xl font-bold text-[#2A8C82]">
                     {formatCurrency(liveMinuteRate, true)}
                   </span>
-                  <span className="block text-xs font-normal text-[#63726A]">
+                  <span className="block text-xs font-normal text-[#64748B]">
                     per minute
                   </span>
                 </div>
               </div>
             </>
           )}
+        </div>
 
-          {/* Modal Footer Actions */}
-          <div className="pt-4 border-t border-[#E8ECE9] flex items-center justify-end gap-2.5">
+        {/* Sticky Action Footer — Always Pinned & Visible */}
+        <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 sm:px-8 py-4 rounded-b-2xl flex items-center justify-between gap-4">
+          <span className="text-xs font-normal text-[#64748B]">
+            {isDirty ? (
+              <span className="inline-flex items-center gap-1.5 text-[#E78358] font-medium">
+                <span className="w-2 h-2 rounded-full bg-[#E78358]" />
+                <span>Unsaved changes</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#F4B266]" />
+                <span>All fields ready</span>
+              </span>
+            )}
+          </span>
+
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-full text-xs sm:text-sm font-normal text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] transition-colors"
+              onClick={handleRequestClose}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-[#F8F9FA] text-xs sm:text-sm font-medium text-[#64748B] hover:text-[#2D3134] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 bg-[#42685B] hover:bg-[#36544a] text-white font-medium text-xs sm:text-sm px-6 py-2.5 rounded-full shadow-xs transition-all"
+              className="inline-flex items-center gap-1.5 bg-[#2A8C82] hover:bg-[#23736B] text-white font-semibold text-xs sm:text-sm px-6 py-2.5 rounded-xl shadow-sm transition-all"
             >
-              <Check className="w-3.5 h-3.5 text-[#E8A184]" />
-              <span>{isEditing ? 'Save Changes' : 'Create Item'}</span>
+              <Check className="w-4 h-4 text-[#F4B266]" />
+              <span>Save Changes</span>
             </button>
           </div>
-        </form>
-      </div>
+        </div>
+      </form>
+
+      {/* Unsaved Changes Confirmation Dialog */}
+      {showDiscardConfirm && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2D3134]/30 backdrop-blur-sm animate-fadeIn"
+        >
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-lg max-w-md w-full p-6 space-y-5">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-[#E78358]/10 border border-[#E78358]/30 text-[#E78358] flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-[#2D3134]">
+                  Discard unsaved changes? Any edits will be lost.
+                </h3>
+                <p className="text-xs font-normal text-[#64748B] leading-relaxed">
+                  You have uncommitted changes in this form. If you leave now, your edits will not be saved.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDiscardConfirm(false);
+                  setPendingAction(null);
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-[#F8F9FA] text-xs font-medium text-[#2D3134] transition-colors"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDiscardConfirm(false);
+                  onDirtyChange?.(false);
+                  if (pendingAction) {
+                    pendingAction();
+                  } else {
+                    onClose();
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-[#E78358] hover:bg-[#d67147] text-white text-xs font-semibold shadow-sm transition-colors"
+              >
+                Discard Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

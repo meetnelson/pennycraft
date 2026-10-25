@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
   Pencil,
+  ArrowUpDown,
 } from 'lucide-react';
 import {
   CascadeAlert,
@@ -62,6 +63,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [filterAffectedOnly, setFilterAffectedOnly] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [globalRuleOverrideId, setGlobalRuleOverrideId] =
     useState<string>('PRODUCT_DEFAULT');
@@ -100,7 +102,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   }, [cascadeAlerts, affectedProducts]);
 
   const filteredProducts = useMemo(() => {
-    return products.filter((prod) => {
+    const matching = products.filter((prod) => {
       const matchesSearch =
         prod.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         prod.category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -110,7 +112,14 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
         !filterAffectedOnly || Boolean(prod.price_stale_flag);
       return matchesSearch && matchesCat && matchesAffected;
     });
-  }, [products, searchQuery, selectedCategory, filterAffectedOnly]);
+
+    return [...matching].sort((a, b) => {
+      const cmp = a.name.localeCompare(b.name, undefined, {
+        sensitivity: 'base',
+      });
+      return sortOrder === 'asc' ? cmp : -cmp;
+    });
+  }, [products, searchQuery, selectedCategory, filterAffectedOnly, sortOrder]);
 
   return (
     <section className="space-y-8">
@@ -118,12 +127,12 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
       {affectedProducts.length > 0 && (
         <div
           role="alert"
-          className="bg-[#FDF3F0] rounded-2xl px-5 py-3 border border-[#E8A184]/50 flex flex-wrap items-center justify-between gap-3 text-xs"
+          className="bg-[#E78358]/10 rounded-2xl px-5 py-3 border border-[#E78358]/30 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm"
         >
-          <div className="flex items-center gap-2 text-[#C66746] font-normal">
-            <AlertCircle className="w-4 h-4 shrink-0 text-[#C66746]" />
+          <div className="flex items-center gap-2 text-[#E78358] font-normal">
+            <AlertCircle className="w-4 h-4 shrink-0 text-[#E78358]" />
             <span>
-              <strong className="font-medium text-[#303C36]">
+              <strong className="font-medium text-[#2D3134]">
                 {latestCascadeItemName}
               </strong>{' '}
               price changed — affects {affectedProducts.length}{' '}
@@ -135,7 +144,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             <button
               type="button"
               onClick={() => setFilterAffectedOnly((prev) => !prev)}
-              className="px-3 py-1 rounded-full text-xs font-medium text-[#63726A] hover:text-[#303C36] bg-white hover:bg-[#FAFBFA] border border-[#E8ECE9] transition-colors"
+              className="px-3 py-1 rounded-xl text-xs font-medium text-[#64748B] hover:text-[#2D3134] bg-white hover:bg-[#F8F9FA] border border-slate-200 transition-colors"
             >
               {filterAffectedOnly ? 'Show All' : 'Review'}
             </button>
@@ -145,9 +154,9 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 onRecalculateAllAffected();
                 setFilterAffectedOnly(false);
               }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-medium bg-[#42685B] hover:bg-[#36544a] text-white transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-xl text-xs font-medium bg-[#2A8C82] hover:bg-[#23736B] text-white transition-colors"
             >
-              <RefreshCw className="w-3.5 h-3.5 text-[#E8A184]" />
+              <RefreshCw className="w-3.5 h-3.5 text-[#F4B266]" />
               <span>Update All</span>
             </button>
           </div>
@@ -158,20 +167,20 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-1">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-semibold text-[#303C36] tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-[#2D3134] tracking-tight">
               My Products
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full bg-white border border-[#E8ECE9] text-xs font-normal text-[#63726A]">
+            <span className="px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-xs font-normal text-[#64748B] shadow-xs">
               {products.length} {products.length === 1 ? 'Product' : 'Products'}
             </span>
             {affectedProducts.length === 0 && (
-              <span className="hidden sm:inline-block text-xs font-normal text-[#63726A]">
+              <span className="hidden sm:inline-block text-xs font-normal text-[#64748B]">
                 • All prices current
               </span>
             )}
           </div>
-          <p className="text-sm font-normal text-[#63726A] mt-1">
-            Calculate prices and track profit.
+          <p className="text-sm font-normal text-[#64748B] mt-1">
+            Know your costs. Price with confidence.
           </p>
         </div>
 
@@ -179,18 +188,18 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
           <button
             type="button"
             onClick={onOpenRulesTab}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white border border-[#E8ECE9] text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] text-xs font-medium transition-all"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-[#64748B] hover:text-[#2D3134] hover:bg-[#F8F9FA] text-xs font-medium shadow-xs transition-all"
           >
-            <Sliders className="w-3.5 h-3.5 text-[#E8A184]" />
+            <Sliders className="w-3.5 h-3.5 text-[#E78358]" />
             <span>Pricing Rules</span>
           </button>
 
           <button
             type="button"
             onClick={onOpenAddProduct}
-            className="inline-flex items-center gap-1.5 bg-[#42685B] hover:bg-[#36544a] text-white font-medium text-xs sm:text-sm px-4 py-2 rounded-full transition-all"
+            className="inline-flex items-center gap-1.5 bg-[#2A8C82] hover:bg-[#23736B] text-white font-medium text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-sm transition-all"
           >
-            <Plus className="w-3.5 h-3.5 text-[#E8A184]" />
+            <Plus className="w-3.5 h-3.5 text-[#F4B266]" />
             <span>New Product</span>
           </button>
         </div>
@@ -201,19 +210,19 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
         <div className="flex flex-1 flex-wrap items-center gap-2">
           {/* Search Input */}
           <div className="relative min-w-[200px] max-w-xs flex-1">
-            <Search className="w-3.5 h-3.5 text-[#63726A] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-[#64748B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search products..."
-              className="w-full pl-9 pr-8 py-2 bg-white border border-[#E8ECE9] focus:border-[#42685B] rounded-full text-xs font-normal text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none shadow-[0_2px_10px_rgb(0,0,0,0.02)] transition-all"
+              className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-xl text-xs font-normal text-[#2D3134] placeholder:text-[#64748B] shadow-xs transition-all"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#63726A] hover:text-[#303C36]"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#64748B] hover:text-[#2D3134]"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -227,8 +236,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
               onClick={() => setSelectedCategory('ALL')}
               className={`px-3.5 py-1.5 rounded-full text-xs transition-all whitespace-nowrap ${
                 selectedCategory === 'ALL'
-                  ? 'bg-[#42685B] text-white font-medium'
-                  : 'bg-white text-[#63726A] hover:text-[#303C36] border border-[#E8ECE9] font-normal'
+                  ? 'bg-[#2A8C82] text-white font-medium shadow-xs'
+                  : 'bg-white text-[#64748B] hover:text-[#2D3134] border border-slate-200 font-normal'
               }`}
             >
               All
@@ -242,8 +251,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 }
                 className={`px-3.5 py-1.5 rounded-full text-xs transition-all whitespace-nowrap ${
                   selectedCategory === cat
-                    ? 'bg-[#42685B] text-white font-medium'
-                    : 'bg-white text-[#63726A] hover:text-[#303C36] border border-[#E8ECE9] font-normal'
+                    ? 'bg-[#2A8C82] text-white font-medium shadow-xs'
+                    : 'bg-white text-[#64748B] hover:text-[#2D3134] border border-slate-200 font-normal'
                 }`}
               >
                 {cat}
@@ -252,47 +261,66 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
           </div>
         </div>
 
-        {/* Rule Simulation Pill */}
-        <div className="flex items-center gap-2 self-end md:self-auto bg-white border border-[#E8ECE9] rounded-full px-3.5 py-1.5 shadow-[0_2px_10px_rgb(0,0,0,0.02)]">
-          <span className="text-xs font-normal text-[#63726A]">Rule:</span>
-          <select
-            value={globalRuleOverrideId}
-            onChange={(e) => {
-              setGlobalRuleOverrideId(e.target.value);
-              setCardRuleOverrides({});
-            }}
-            className="bg-transparent text-xs font-medium text-[#303C36] focus:outline-none cursor-pointer"
+        {/* Sort & Rule Simulation Controls */}
+        <div className="flex items-center justify-end gap-2 self-end md:self-auto">
+          <button
+            type="button"
+            onClick={() =>
+              setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+            }
+            title={`Sort alphabetically (${
+              sortOrder === 'asc' ? 'A-Z' : 'Z-A'
+            })`}
+            aria-label={`Sort ${
+              sortOrder === 'asc' ? 'A-Z' : 'Z-A'
+            }`}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-slate-200 hover:border-[#2A8C82]/40 rounded-xl text-xs font-medium text-[#2D3134] shadow-xs transition-all"
           >
-            <option value="PRODUCT_DEFAULT">Product Default</option>
-            {pricingRules.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
+            <ArrowUpDown className="w-3.5 h-3.5 text-[#2A8C82]" />
+            <span>{sortOrder === 'asc' ? 'A-Z' : 'Z-A'}</span>
+          </button>
+
+          <div className="flex items-center gap-2 bg-white border border-slate-200 focus-within:border-[#2A8C82] focus-within:ring-1 focus-within:ring-[#2A8C82] rounded-xl px-3.5 py-1.5 shadow-xs transition-all">
+            <span className="text-xs font-normal text-[#64748B]">Rule:</span>
+            <select
+              value={globalRuleOverrideId}
+              onChange={(e) => {
+                setGlobalRuleOverrideId(e.target.value);
+                setCardRuleOverrides({});
+              }}
+              className="bg-white text-xs font-medium text-[#2D3134] outline-none cursor-pointer"
+            >
+              <option value="PRODUCT_DEFAULT">Product Default</option>
+              {pricingRules.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Products Grid */}
       {filteredProducts.length === 0 ? (
-        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#E8ECE9] p-12 text-center max-w-md mx-auto my-8">
-          <h3 className="text-base font-medium text-[#303C36]">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center max-w-md mx-auto my-8">
+          <h3 className="text-base font-medium text-[#2D3134]">
             No products found
           </h3>
-          <p className="text-xs font-normal text-[#63726A] mt-1 mb-5">
+          <p className="text-xs font-normal text-[#64748B] mt-1 mb-5">
             Create a product recipe to calculate your selling price.
           </p>
           <button
             type="button"
             onClick={onOpenAddProduct}
-            className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#42685B] text-white text-xs font-medium hover:bg-[#36544a] transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2A8C82] text-white text-xs font-medium hover:bg-[#23736B] shadow-sm transition-colors"
           >
-            <Plus className="w-3.5 h-3.5 text-[#E8A184]" />
+            <Plus className="w-3.5 h-3.5 text-[#F4B266]" />
             <span>New Product</span>
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredProducts.map((product) => {
             const isStale = Boolean(product.price_stale_flag);
             const isConfirmingDelete = confirmDeleteId === product.id;
@@ -362,10 +390,10 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             return (
               <React.Fragment key={product.id}>
                 {/* MOBILE QUICK CONSULTATION CARD (<768px) */}
-                <div className="md:hidden bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#E8ECE9] p-5 flex flex-col justify-between relative">
+                <div className="md:hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between relative">
                   {/* Top Row: Product Title & 3-Dots Action Menu */}
                   <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-base font-semibold text-[#303C36] leading-snug">
+                    <h3 className="text-base font-semibold text-[#2D3134] leading-snug">
                       {product.name}
                     </h3>
 
@@ -378,7 +406,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                           )
                         }
                         aria-label="Product actions"
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] transition-colors"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-[#64748B] hover:text-[#2D3134] hover:bg-[#F8F9FA] transition-colors"
                       >
                         <MoreHorizontal className="w-4 h-4" />
                       </button>
@@ -389,16 +417,16 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                             className="fixed inset-0 z-10"
                             onClick={() => setOpenMenuProductId(null)}
                           />
-                          <div className="absolute right-0 mt-1 w-40 bg-white rounded-2xl shadow-[0_12px_36px_rgb(0,0,0,0.12)] border border-[#E8ECE9] py-1.5 z-20">
+                          <div className="absolute right-0 mt-1 w-40 bg-white rounded-2xl shadow-md border border-slate-200 py-1.5 z-20">
                             <button
                               type="button"
                               onClick={() => {
                                 setOpenMenuProductId(null);
                                 onOpenEditProduct(product);
                               }}
-                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#303C36] hover:bg-[#FAFBFA] flex items-center gap-2"
+                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#2D3134] hover:bg-[#F8F9FA] flex items-center gap-2"
                             >
-                              <Pencil className="w-3.5 h-3.5 text-[#63726A]" />
+                              <Pencil className="w-3.5 h-3.5 text-[#64748B]" />
                               <span>Edit Recipe</span>
                             </button>
                             <button
@@ -407,9 +435,9 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                                 setOpenMenuProductId(null);
                                 onDuplicateProduct(product.id);
                               }}
-                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#303C36] hover:bg-[#FAFBFA] flex items-center gap-2"
+                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-[#2D3134] hover:bg-[#F8F9FA] flex items-center gap-2"
                             >
-                              <Copy className="w-3.5 h-3.5 text-[#63726A]" />
+                              <Copy className="w-3.5 h-3.5 text-[#64748B]" />
                               <span>Duplicate</span>
                             </button>
                             <button
@@ -429,7 +457,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Delete Confirmation Inline Banner (if triggered on mobile) */}
+                  {/* Delete Confirmation Inline Banner */}
                   {isConfirmingDelete && (
                     <div className="mt-3 flex items-center justify-between bg-rose-50 px-3.5 py-2 rounded-2xl">
                       <span className="text-xs font-medium text-rose-700">
@@ -446,7 +474,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                         <button
                           type="button"
                           onClick={() => setConfirmDeleteId(null)}
-                          className="px-3 py-1 rounded-full bg-white text-[#63726A] text-xs font-normal"
+                          className="px-3 py-1 rounded-full bg-white text-[#64748B] text-xs font-normal"
                         >
                           No
                         </button>
@@ -456,22 +484,22 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
 
                   {/* Category & Base Production Cost Cleanly Side-by-Side */}
                   <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#B8C9BD]/25 border border-[#B8C9BD]/50 text-[#303C36] text-xs font-normal">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#F8F9FA] border border-slate-200 text-[#2D3134] text-xs font-medium">
                       {product.category}
                     </span>
 
                     <div className="flex items-center gap-1.5 text-xs">
-                      <span className="text-[#63726A] font-normal">
+                      <span className="text-[#64748B] font-normal">
                         Base Cost:
                       </span>
-                      <span className="font-semibold text-[#303C36]">
+                      <span className="font-semibold text-[#2D3134]">
                         {formatCurrency(displayBaseCost)}
                       </span>
                       {isStale && (
                         <button
                           type="button"
                           onClick={() => onRecalculateProduct(product.id)}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FDF3F0] border border-[#E8A184]/50 text-[11px] font-medium text-[#C66746]"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E78358]/10 border border-[#E78358]/30 text-[11px] font-medium text-[#E78358]"
                         >
                           <RefreshCw className="w-2.5 h-2.5" />
                           <span>Update</span>
@@ -481,9 +509,9 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                   </div>
 
                   {/* Hero Section: Suggested Retail Price + Inline Pricing Rule Switcher */}
-                  <div className="mt-4 pt-3.5 border-t border-[#E8ECE9] flex items-end justify-between gap-3">
+                  <div className="mt-4 pt-3.5 border-t border-slate-200 flex items-end justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <label className="block text-[11px] font-normal text-[#63726A] mb-1">
+                      <label className="block text-[11px] font-normal text-[#64748B] mb-1">
                         Pricing Rule
                       </label>
                       <select
@@ -495,7 +523,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                           }))
                         }
                         aria-label={`Pricing rule for ${product.name}`}
-                        className="w-full max-w-[170px] bg-[#FAFBFA] hover:bg-[#E8ECE9]/60 border border-[#E8ECE9] rounded-xl px-2.5 py-1.5 text-xs font-medium text-[#303C36] focus:outline-none truncate cursor-pointer"
+                        className="w-full max-w-[170px] bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-xl px-2.5 py-1.5 text-xs font-medium text-[#2D3134] truncate cursor-pointer"
                       >
                         {pricingRules.map((r) => (
                           <option key={r.id} value={r.id}>
@@ -507,21 +535,21 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
 
                     <div className="text-right shrink-0">
                       <div className="flex items-center justify-end gap-1.5 mb-0.5">
-                        <span className="text-[11px] font-normal text-[#63726A]">
+                        <span className="text-[11px] font-normal text-[#64748B]">
                           Suggested Price
                         </span>
-                        <span className="text-[11px] font-medium text-[#C66746] bg-[#FDF3F0] border border-[#E8A184]/50 px-2 py-0.5 rounded-full">
+                        <span className="text-[11px] font-medium text-[#E78358] bg-[#E78358]/10 border border-[#E78358]/30 px-2 py-0.5 rounded-full">
                           {ruleEval.netMarginPercent.toFixed(0)}% margin
                         </span>
                       </div>
-                      <div className="text-3xl font-bold text-[#42685B] tracking-tight leading-none">
+                      <div className="text-3xl font-bold text-[#2A8C82] tracking-tight leading-none">
                         {formatCurrency(ruleEval.suggestedRetailPrice)}
                       </div>
                     </div>
                   </div>
 
                   {/* Expandable Breakdown Drawer Toggle ("Show details") */}
-                  <div className="mt-3.5 pt-2.5 border-t border-[#E8ECE9]">
+                  <div className="mt-3.5 pt-2.5 border-t border-slate-200">
                     <button
                       type="button"
                       onClick={() =>
@@ -530,7 +558,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                           [product.id]: !prev[product.id],
                         }))
                       }
-                      className="w-full flex items-center justify-between text-xs font-medium text-[#63726A] hover:text-[#303C36] py-0.5 transition-colors"
+                      className="w-full flex items-center justify-between text-xs font-medium text-[#64748B] hover:text-[#2D3134] py-0.5 transition-colors"
                     >
                       <span>
                         {isExpandedMobile ? 'Hide details' : 'Show details'}
@@ -543,49 +571,49 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     </button>
 
                     {isExpandedMobile && (
-                      <div className="mt-3 pt-2.5 border-t border-[#E8ECE9] space-y-2.5 text-xs">
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-[#63726A]">
+                      <div className="mt-3 pt-2.5 border-t border-slate-200 space-y-2.5 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-[#64748B]">
                           <span className="inline-flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#E8A184]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#E78358]" />
                             <span>Materials</span>
-                            <span className="font-medium text-[#303C36]">
+                            <span className="font-medium text-[#2D3134]">
                               {formatCurrency(displayMaterialsCost)}
                             </span>
                           </span>
 
                           <span className="inline-flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#B8C9BD]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#F4B266]" />
                             <span>Packaging</span>
-                            <span className="font-medium text-[#303C36]">
+                            <span className="font-medium text-[#2D3134]">
                               {formatCurrency(displayPackagingCost)}
                             </span>
                           </span>
 
                           <span className="inline-flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#42685B]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#2A8C82]" />
                             <span>Time ({totalMinutes}m)</span>
-                            <span className="font-medium text-[#303C36]">
+                            <span className="font-medium text-[#2D3134]">
                               {formatCurrency(displayLaborCost)}
                             </span>
                           </span>
                         </div>
 
-                        <div className="h-1 w-full rounded-full bg-[#E8ECE9] overflow-hidden flex gap-0.5">
+                        <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden flex gap-0.5">
                           <div
                             style={{ width: `${matPct}%` }}
-                            className="bg-[#E8A184] rounded-full"
+                            className="bg-[#E78358] rounded-full"
                           />
                           <div
                             style={{ width: `${pkgPct}%` }}
-                            className="bg-[#B8C9BD] rounded-full"
+                            className="bg-[#F4B266] rounded-full"
                           />
                           <div
                             style={{ width: `${labPct}%` }}
-                            className="bg-[#42685B] rounded-full"
+                            className="bg-[#2A8C82] rounded-full"
                           />
                         </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-[#63726A] pt-1">
+                        <div className="flex items-center justify-between text-[11px] text-[#64748B] pt-1">
                           <span>
                             {product.items_materials.length} materials •{' '}
                             {totalMinutes}m labor
@@ -597,65 +625,65 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                   </div>
                 </div>
 
-                {/* DESKTOP PRODUCT CARD (md: and lg: layout completely preserved) */}
-                <div className="hidden md:flex bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_14px_40px_rgb(0,0,0,0.06)] transition-all duration-200 p-7 flex-col justify-between border border-[#E8ECE9]">
+                {/* DESKTOP PRODUCT CARD */}
+                <div className="hidden md:flex bg-white rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 p-7 flex-col justify-between border border-slate-200">
                   <div>
-                    {/* Top Row: Only Category Badge */}
+                    {/* Top Row: Category Badge & Summary Metadata */}
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="inline-flex items-center px-3 py-0.5 rounded-full bg-[#B8C9BD]/25 border border-[#B8C9BD]/50 text-[#303C36] text-xs font-normal">
+                      <span className="inline-flex items-center px-3 py-0.5 rounded-full bg-[#F8F9FA] border border-slate-200 text-[#2D3134] text-xs font-medium">
                         {product.category}
                       </span>
 
-                      <span className="text-xs font-normal text-[#63726A]">
+                      <span className="text-xs font-normal text-[#64748B]">
                         {product.items_materials.length} materials • {totalMinutes}m labor
                       </span>
                     </div>
 
                     {/* Product Title */}
-                    <h3 className="text-lg font-semibold text-[#303C36] leading-snug mb-6">
+                    <h3 className="text-lg font-semibold text-[#2D3134] leading-snug mb-6">
                       {product.name}
                     </h3>
 
-                    {/* Minimalist Inline Cost Breakdown + Delicate Single-Line Progress Bar */}
-                    <div className="space-y-2.5 pb-6 border-b border-[#E8ECE9]">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-normal text-[#63726A]">
+                    {/* Inline Cost Breakdown + Progress Bar */}
+                    <div className="space-y-2.5 pb-6 border-b border-slate-200">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-normal text-[#64748B]">
                         <span className="inline-flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#E8A184]" />
+                          <span className="w-2 h-2 rounded-full bg-[#E78358]" />
                           <span>Materials</span>
-                          <span className="font-medium text-[#303C36]">
+                          <span className="font-medium text-[#2D3134]">
                             {formatCurrency(displayMaterialsCost)}
                           </span>
                         </span>
 
                         <span className="inline-flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#B8C9BD]" />
+                          <span className="w-2 h-2 rounded-full bg-[#F4B266]" />
                           <span>Packaging</span>
-                          <span className="font-medium text-[#303C36]">
+                          <span className="font-medium text-[#2D3134]">
                             {formatCurrency(displayPackagingCost)}
                           </span>
                         </span>
 
                         <span className="inline-flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#42685B]" />
+                          <span className="w-2 h-2 rounded-full bg-[#2A8C82]" />
                           <span>Time</span>
-                          <span className="font-medium text-[#303C36]">
+                          <span className="font-medium text-[#2D3134]">
                             {formatCurrency(displayLaborCost)}
                           </span>
                         </span>
                       </div>
 
-                      <div className="h-1 w-full rounded-full bg-[#E8ECE9] overflow-hidden flex gap-0.5">
+                      <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden flex gap-0.5">
                         <div
                           style={{ width: `${matPct}%` }}
-                          className="bg-[#E8A184] rounded-full transition-all duration-300"
+                          className="bg-[#E78358] rounded-full transition-all duration-300"
                         />
                         <div
                           style={{ width: `${pkgPct}%` }}
-                          className="bg-[#B8C9BD] rounded-full transition-all duration-300"
+                          className="bg-[#F4B266] rounded-full transition-all duration-300"
                         />
                         <div
                           style={{ width: `${labPct}%` }}
-                          className="bg-[#42685B] rounded-full transition-all duration-300"
+                          className="bg-[#2A8C82] rounded-full transition-all duration-300"
                         />
                       </div>
                     </div>
@@ -663,11 +691,11 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     {/* Cost to Make vs. Suggested Price Row */}
                     <div className="flex items-end justify-between gap-4 pt-5">
                       <div>
-                        <span className="block text-xs font-normal text-[#63726A]">
+                        <span className="block text-xs font-normal text-[#64748B]">
                           Cost to Make
                         </span>
                         <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                          <span className="text-base font-medium text-[#303C36]">
+                          <span className="text-base font-medium text-[#2D3134]">
                             {formatCurrency(displayBaseCost)}
                           </span>
                           {isStale && (
@@ -675,7 +703,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                               type="button"
                               onClick={() => onRecalculateProduct(product.id)}
                               title="Click to accept updated supply costs"
-                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FDF3F0] border border-[#E8A184]/50 text-xs font-normal text-[#C66746] hover:bg-[#F9E3DC] transition-colors"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#E78358]/10 border border-[#E78358]/30 text-xs font-medium text-[#E78358] hover:bg-[#E78358]/15 transition-colors"
                             >
                               <RefreshCw className="w-3 h-3 shrink-0" />
                               <span>
@@ -691,14 +719,14 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                       </div>
 
                       <div className="text-right">
-                        <span className="block text-xs font-normal text-[#63726A]">
+                        <span className="block text-xs font-normal text-[#64748B]">
                           Suggested Price ({ruleToUse?.name})
                         </span>
                         <div className="inline-flex items-baseline gap-2 mt-0.5">
-                          <span className="text-[11px] font-medium text-[#C66746] bg-[#FDF3F0] border border-[#E8A184]/50 px-2 py-0.5 rounded-full">
+                          <span className="text-[11px] font-medium text-[#E78358] bg-[#E78358]/10 border border-[#E78358]/30 px-2 py-0.5 rounded-full">
                             {ruleEval.netMarginPercent.toFixed(0)}% margin
                           </span>
-                          <span className="text-2xl font-semibold text-[#42685B] tracking-tight">
+                          <span className="text-2xl font-semibold text-[#2A8C82] tracking-tight">
                             {formatCurrency(ruleEval.suggestedRetailPrice)}
                           </span>
                         </div>
@@ -707,18 +735,18 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                   </div>
 
                   {/* Card Footer: Subtle Date & Clean Action Buttons */}
-                  <div className="mt-6 pt-4 border-t border-[#E8ECE9] flex items-center justify-between gap-3">
-                    <span className="text-xs font-normal text-[#63726A]">
+                  <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between gap-3">
+                    <span className="text-xs font-normal text-[#64748B]">
                       Updated {formatDate(product.updated_at)}
                     </span>
 
                     {!isConfirmingDelete ? (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => onDuplicateProduct(product.id)}
                           title="Duplicate product"
-                          className="p-2 rounded-full text-[#63726A] hover:text-[#303C36] hover:bg-[#FAFBFA] transition-colors"
+                          className="p-2 rounded-xl text-[#64748B] hover:text-[#2D3134] hover:bg-[#F8F9FA] transition-colors"
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
@@ -727,7 +755,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                           type="button"
                           onClick={() => setConfirmDeleteId(product.id)}
                           title="Delete product"
-                          className="p-2 rounded-full text-[#63726A] hover:text-rose-500 hover:bg-rose-50 transition-colors mr-1"
+                          className="p-2 rounded-xl text-[#64748B] hover:text-rose-500 hover:bg-rose-50 transition-colors mr-1"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -735,7 +763,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onOpenEditProduct(product)}
-                          className="px-4 py-1.5 rounded-full bg-[#42685B] hover:bg-[#36544a] text-white text-xs font-medium transition-all"
+                          className="px-4 py-2 rounded-xl bg-[#2A8C82] hover:bg-[#23736B] text-white text-xs font-medium shadow-sm transition-all"
                         >
                           Price Product
                         </button>
@@ -755,7 +783,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                         <button
                           type="button"
                           onClick={() => setConfirmDeleteId(null)}
-                          className="px-2.5 py-0.5 rounded-full text-[#63726A] text-xs font-normal hover:bg-white"
+                          className="px-2.5 py-0.5 rounded-full text-[#64748B] text-xs font-normal hover:bg-white"
                         >
                           No
                         </button>

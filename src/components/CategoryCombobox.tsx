@@ -51,7 +51,7 @@ export const CategoryCombobox: React.FC<CategoryComboboxProps> = ({
   return (
     <div ref={containerRef} className="relative">
       <div className="relative flex items-center">
-        <Tag className="w-3.5 h-3.5 text-[#63726A] absolute left-3.5 pointer-events-none" />
+        <Tag className="w-3.5 h-3.5 text-[#64748B] absolute left-3.5 pointer-events-none" />
         <input
           type="text"
           value={value}
@@ -68,13 +68,13 @@ export const CategoryCombobox: React.FC<CategoryComboboxProps> = ({
             }, 150);
           }}
           placeholder={placeholder}
-          className="w-full pl-9 pr-9 py-2.5 bg-[#FAFBFA] border border-[#E8ECE9] focus:border-[#42685B] focus:bg-white rounded-2xl text-sm font-normal text-[#303C36] placeholder:text-[#63726A]/70 focus:outline-none transition-all"
+          className="w-full pl-9 pr-9 py-2.5 bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-2xl text-sm font-normal text-[#2D3134] placeholder:text-[#64748B] transition-all"
         />
         <button
           type="button"
           tabIndex={-1}
           onClick={() => setIsOpen((prev) => !prev)}
-          className="absolute right-2.5 p-1 text-[#63726A] hover:text-[#303C36] rounded-lg"
+          className="absolute right-2.5 p-1 text-[#64748B] hover:text-[#2D3134] rounded-lg"
         >
           <ChevronDown
             className={`w-4 h-4 transition-transform duration-150 ${
@@ -85,10 +85,10 @@ export const CategoryCombobox: React.FC<CategoryComboboxProps> = ({
       </div>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] py-2 max-h-56 overflow-y-auto border border-[#E8ECE9]">
+        <div className="absolute z-50 mt-2 w-full bg-white rounded-2xl shadow-sm py-2 max-h-56 overflow-y-auto border border-slate-200">
           {filteredCategories.length > 0 ? (
             <div className="px-1.5 space-y-0.5">
-              <div className="px-2.5 py-1 text-[11px] font-normal text-[#63726A]">
+              <div className="px-2.5 py-1 text-[11px] font-normal text-[#64748B]">
                 Saved Categories
               </div>
               {filteredCategories.map((cat) => {
@@ -101,13 +101,13 @@ export const CategoryCombobox: React.FC<CategoryComboboxProps> = ({
                     onClick={() => handleSelect(cat)}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs sm:text-sm font-normal transition-colors ${
                       isSelected
-                        ? 'bg-[#42685B]/10 text-[#42685B] font-semibold'
-                        : 'text-[#303C36] hover:bg-[#FAFBFA]'
+                        ? 'bg-[#2A8C82]/10 text-[#2A8C82] font-semibold'
+                        : 'text-[#2D3134] hover:bg-[#F8F9FA]'
                     }`}
                   >
                     <span>{cat}</span>
                     {isSelected && (
-                      <Check className="w-3.5 h-3.5 text-[#42685B]" />
+                      <Check className="w-3.5 h-3.5 text-[#2A8C82]" />
                     )}
                   </button>
                 );
@@ -115,23 +115,23 @@ export const CategoryCombobox: React.FC<CategoryComboboxProps> = ({
             </div>
           ) : (
             !trimmedInput && (
-              <div className="px-4 py-3 text-xs text-[#63726A] text-center">
+              <div className="px-4 py-3 text-xs text-[#64748B] text-center">
                 Type to create your first category
               </div>
             )
           )}
 
           {trimmedInput.length > 0 && !exactMatchExists && (
-            <div className="px-1.5 pt-1 mt-1 border-t border-[#E8ECE9]">
+            <div className="px-1.5 pt-1 mt-1 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => handleSelect(trimmedInput)}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-xs font-medium text-[#42685B] bg-[#42685B]/10 hover:bg-[#42685B]/15 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left text-xs font-medium text-[#2A8C82] bg-[#2A8C82]/10 hover:bg-[#2A8C82]/15 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">
                   Create category:{' '}
-                  <strong className="font-medium">"{trimmedInput}"</strong>
+                  <strong className="font-medium">&ldquo;{trimmedInput}&rdquo;</strong>
                 </span>
               </button>
             </div>
