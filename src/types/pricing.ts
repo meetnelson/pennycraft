@@ -130,6 +130,8 @@ export type PercentTarget =
 
 export type ModifierRole = 'MARKUP' | 'MARGIN' | 'FEE' | 'OVERHEAD' | 'DISCOUNT';
 
+export type FeeScope = 'PER_ORDER' | 'PER_ITEM';
+
 export interface PricingBlock {
   id: string;
   type: PricingBlockType;
@@ -138,6 +140,8 @@ export interface PricingBlock {
   target?: PercentTarget; // for PERCENT_MODIFIER or percent DISCOUNT
   is_percent?: boolean; // for DISCOUNT and FEE (true = %, false = $)
   role?: ModifierRole; // distinguishes Markup vs Platform Fee vs Extra Overhead
+  fee_scope?: FeeScope; // for Fixed Fee ($): 'PER_ORDER' (once per order) or 'PER_ITEM' (per unit)
+  auto_target_margin?: number; // set when Markup % is automatically calculated from Target Net Margin
 }
 
 export interface PricingRule {
@@ -168,10 +172,13 @@ export interface PipelineEvaluationResult {
   percentageFeesRate: number;
   percentageFeesTotal: number;
   fixedFeesTotal: number;
+  fixedFeesPerOrderTotal: number;
+  fixedFeesPerItemTotal: number;
   suggestedRetailPrice: number;
   platformFeesTotal: number;
   netRevenue: number;
   discountsTotal: number;
   netProfit: number;
-  netMarginPercent: number; // (netRevenue - directCostsTotal) / suggestedRetailPrice * 100
+  netMarginPercent: number; // (netProfit / suggestedRetailPrice) * 100
+  isMarginUnachievable?: boolean;
 }

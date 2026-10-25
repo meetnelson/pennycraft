@@ -5,13 +5,17 @@ import {
   Plus,
   Trash2,
   GripVertical,
+  Info,
+  Sparkles,
 } from 'lucide-react';
 import {
   EvaluatedBlockStep,
+  FeeScope,
   PercentTarget,
   PricingBlock,
 } from '../types/pricing';
 import {
+  createEtsyFeePresetBlocks,
   formatCurrency,
   generateId,
   isFeeBlock,
@@ -75,14 +79,27 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
   };
 
   const addModifierBlock = (
-    preset: 'MARKUP' | 'FEE_PERCENT' | 'FEE_FIXED' | 'FIXED_ADD' | 'DISCOUNT'
+    preset:
+      | 'MARKUP'
+      | 'FEE_PERCENT'
+      | 'FEE_FIXED'
+      | 'ETSY_PRESET'
+      | 'FIXED_ADD'
+      | 'DISCOUNT'
   ) => {
+    if (preset === 'ETSY_PRESET') {
+      // Remove existing fee blocks and append the realistic decomposed Etsy fee structure
+      const withoutFees = blocks.filter((b) => !isFeeBlock(b));
+      onChangeBlocks([...withoutFees, ...createEtsyFeePresetBlocks()]);
+      return;
+    }
+
     let newBlock: PricingBlock;
     if (preset === 'MARKUP') {
       newBlock = {
         id: generateId('blk'),
         type: 'PERCENT_MODIFIER',
-        label: 'Markup %',
+        label: 'Profit Markup',
         value: 50,
         target: 'RUNNING_SUBTOTAL',
         role: 'MARKUP',
@@ -91,8 +108,8 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
       newBlock = {
         id: generateId('blk'),
         type: 'PERCENT_MODIFIER',
-        label: 'Marketplace Fee (%)',
-        value: 10,
+        label: 'Etsy Selling Fees',
+        value: 6.5,
         is_percent: true,
         target: 'RUNNING_SUBTOTAL',
         role: 'FEE',
@@ -101,10 +118,11 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
       newBlock = {
         id: generateId('blk'),
         type: 'FIXED_ADD',
-        label: 'Listing Fee ($)',
-        value: 0.2,
+        label: 'Payment Processing (Fixed)',
+        value: 0.25,
         is_percent: false,
         role: 'FEE',
+        fee_scope: 'PER_ORDER',
       };
     } else if (preset === 'FIXED_ADD') {
       newBlock = {
@@ -161,7 +179,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
         dotClass: 'bg-[#E78358]',
         labelColor: 'text-[#2D3134]',
         amountColor: 'text-[#E78358]',
-        badgeText: 'Markup',
+        badgeText: 'Markup %',
         badgeClass:
           'bg-[#E78358]/10 text-[#E78358] border border-[#E78358]/30',
       };
@@ -227,7 +245,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                     />
                   </div>
 
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 space-y-1">
                     {isBase ? (
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs sm:text-sm font-medium text-[#2D3134]">
@@ -246,22 +264,22 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                           value={block.label}
                           aria-label={
                             isMarkup
-                              ? 'Markup %'
+                              ? 'Profit Markup'
                               : isFee
-                              ? 'Marketplace Fee label'
+                              ? 'Selling Fee label'
                               : 'Step label'
                           }
                           placeholder={
                             isMarkup
-                              ? 'Markup %'
+                              ? 'Profit Markup'
                               : isFee
-                              ? 'e.g., Platform Fee, Listing Fee'
+                              ? 'e.g., Etsy Selling Fees'
                               : 'Step label'
                           }
                           onChange={(e) =>
                             updateBlock(index, { label: e.target.value })
                           }
-                          className={`text-xs sm:text-sm font-medium ${meta.labelColor} bg-white rounded-lg px-2.5 py-1 border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none min-w-[115px] max-w-[180px] transition-all`}
+                          className={`text-xs sm:text-sm font-medium ${meta.labelColor} bg-white rounded-lg px-2.5 py-1 border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none min-w-[115px] max-w-[185px] transition-all`}
                         />
 
                         {/* Value Input Pill */}
@@ -302,6 +320,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                             onChange={(e) =>
                               updateBlock(index, {
                                 value: parseFloat(e.target.value) || 0,
+                                auto_target_margin: undefined,
                               })
                             }
                             className="w-12 bg-white text-xs font-medium text-[#2D3134] outline-none text-right"
@@ -328,7 +347,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                                   is_percent: true,
                                 })
                               }
-                              title="Percentage Fee (%) — Grossed up on Final Retail Price"
+                              title="Calculates the selling price needed to cover percentage-based fees while preserving your intended profit."
                               className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
                                 isPctFee
                                   ? 'bg-[#2A8C82] text-white shadow-2xs'
@@ -344,9 +363,10 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                                   type: 'FIXED_ADD',
                                   role: 'FEE',
                                   is_percent: false,
+                                  fee_scope: block.fee_scope || 'PER_ORDER',
                                 })
                               }
-                              title="Fixed Fee ($) — e.g., $0.20 listing fee"
+                              title="Accounts for a fixed fee charged per transaction or item, depending on its configuration."
                               className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
                                 !isPctFee
                                   ? 'bg-[#2A8C82] text-white shadow-2xs'
@@ -381,6 +401,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                             onChange={(e) =>
                               updateBlock(index, {
                                 target: e.target.value as PercentTarget,
+                                auto_target_margin: undefined,
                               })
                             }
                             className="text-[11px] font-normal text-[#64748B] bg-white border border-slate-200 focus:border-[#2A8C82] focus:ring-1 focus:ring-[#2A8C82] outline-none rounded-lg px-2.5 py-1 transition-all"
@@ -397,34 +418,63 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
                           </select>
                         )}
 
-                        {/* Gross-Up Indicator for Percentage Marketplace Fees */}
+                        {/* "% of Selling Price" Badge + Accessible Tooltip for Percentage Fees */}
                         {isFee && isPctFee && (
                           <span
-                            title="Grossed up using C / (1 - F_pct) so the marketplace cut is covered from the final retail price"
-                            className="text-[11px] font-normal text-[#2A8C82] bg-[#2A8C82]/10 border border-[#2A8C82]/25 px-2 py-0.5 rounded-full"
+                            title="Calculates the selling price needed to cover percentage-based fees while preserving your intended profit."
+                            className="inline-flex items-center gap-1 text-[11px] font-normal text-[#2A8C82] bg-[#2A8C82]/10 border border-[#2A8C82]/25 px-2 py-0.5 rounded-full cursor-help"
                           >
-                            of final retail (gross-up)
+                            <span>% of Selling Price</span>
+                            <Info className="w-3 h-3 opacity-75" />
                           </span>
                         )}
 
-                        {/* Fixed Fee Badge */}
+                        {/* Fixed Fee Scope Selector (per order vs per item) + Tooltip */}
                         {isFee && !isPctFee && (
-                          <span className="text-[11px] font-normal text-[#2A8C82] bg-[#2A8C82]/10 border border-[#2A8C82]/25 px-2 py-0.5 rounded-full">
-                            fixed fee
-                          </span>
+                          <div className="inline-flex items-center gap-1">
+                            <select
+                              value={block.fee_scope || 'PER_ORDER'}
+                              onChange={(e) =>
+                                updateBlock(index, {
+                                  fee_scope: e.target.value as FeeScope,
+                                })
+                              }
+                              aria-label="Fixed fee scope"
+                              className="text-[11px] font-normal text-[#2A8C82] bg-[#2A8C82]/10 border border-[#2A8C82]/25 outline-none rounded-full px-2.5 py-0.5 cursor-pointer"
+                            >
+                              <option value="PER_ORDER">per order</option>
+                              <option value="PER_ITEM">per item</option>
+                            </select>
+                            <span
+                              title="Accounts for a fixed fee charged per transaction or item, depending on its configuration."
+                              className="text-[#2A8C82] cursor-help p-0.5"
+                            >
+                              <Info className="w-3 h-3" />
+                            </span>
+                          </div>
                         )}
 
-                        {/* Operational Multiplier Badge for Markup % */}
+                        {/* Operational Multiplier Badge + Accessible Tooltip for Markup % */}
                         {isMarkup && (
                           <span
-                            title="Markup is applied as an operational multiplier on accumulated cost"
-                            className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#E78358]/10 text-[#E78358] border border-[#E78358]/30"
+                            title="Adds a percentage to the accumulated cost at this step."
+                            className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#E78358]/10 text-[#E78358] border border-[#E78358]/30 cursor-help"
                           >
-                            Markup %
+                            <span>Markup %</span>
+                            <Info className="w-3 h-3 opacity-75" />
                           </span>
                         )}
                       </div>
                     )}
+
+                    {/* Auto-calculated helper note when Target Net Margin slider adjusted this Markup step */}
+                    {isMarkup &&
+                      typeof block.auto_target_margin === 'number' && (
+                        <p className="text-[11px] font-normal text-[#2A8C82]">
+                          Automatically calculated to achieve your target net
+                          margin ({block.auto_target_margin}%).
+                        </p>
+                      )}
                   </div>
                 </div>
 
@@ -488,7 +538,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
           <button
             type="button"
             onClick={() => addModifierBlock('MARKUP')}
-            title="Add operational Markup % multiplier on accumulated cost"
+            title="Adds a percentage to the accumulated cost at this step."
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#E78358] bg-[#E78358]/10 border border-[#E78358]/30 hover:bg-[#E78358]/15 transition-colors"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#E78358]" />
@@ -499,7 +549,7 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
           <button
             type="button"
             onClick={() => addModifierBlock('FEE_PERCENT')}
-            title="Add percentage marketplace fee (grossed up on final retail)"
+            title="Calculates the selling price needed to cover percentage-based fees while preserving your intended profit."
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#2A8C82] bg-[#2A8C82]/10 border border-[#2A8C82]/30 hover:bg-[#2A8C82]/15 transition-colors"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#2A8C82]" />
@@ -510,12 +560,22 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
           <button
             type="button"
             onClick={() => addModifierBlock('FEE_FIXED')}
-            title="Add fixed marketplace fee (e.g., $0.20 listing fee)"
+            title="Accounts for a fixed fee charged per transaction or item, depending on its configuration."
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#2A8C82] bg-white border border-[#2A8C82]/30 hover:bg-[#2A8C82]/10 transition-colors"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#2A8C82]" />
             <Plus className="w-3 h-3" />
             <span>Fee $</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => addModifierBlock('ETSY_PRESET')}
+            title="Apply standard Canadian / International Etsy fee breakdown: 6.5% Transaction Fee, 3% + $0.25 Payment Processing, 0.5% Regulatory Operating Fee"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-[#2A8C82] bg-[#2A8C82]/5 border border-[#2A8C82]/30 hover:bg-[#2A8C82]/15 transition-colors"
+          >
+            <Sparkles className="w-3 h-3 text-[#F4B266]" />
+            <span>Etsy Selling Fees Preset</span>
           </button>
 
           <button
@@ -540,6 +600,13 @@ export const RulePipelineStack: React.FC<RulePipelineStackProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Explanatory Text below the formula builder */}
+      <p className="text-xs font-normal text-[#64748B] leading-relaxed pt-1">
+        Markups increase your accumulated costs to build profit. Selling fees
+        are calculated from the final selling price, so they&apos;re covered
+        without reducing your target profit.
+      </p>
     </div>
   );
 };

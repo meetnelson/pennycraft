@@ -6,6 +6,7 @@ import {
   Sparkles,
   Check,
   AlertTriangle,
+  Info,
 } from 'lucide-react';
 import {
   PricingBlock,
@@ -68,6 +69,7 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
   const [draftBlocks, setDraftBlocks] = useState<PricingBlock[]>(
     activeRule?.blocks || []
   );
+  const [selectedSliderMargin, setSelectedSliderMargin] = useState<number | null>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
@@ -77,6 +79,7 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
     setDraftName(activeRule.name);
     setDraftDescription(activeRule.description || '');
     setDraftBlocks(activeRule.blocks);
+    setSelectedSliderMargin(null);
   }, [activeRule?.id, activeRule?.updated_at]);
 
   const isDirty = useMemo(() => {
@@ -130,6 +133,7 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
     setDraftName(activeRule.name);
     setDraftDescription(activeRule.description || '');
     setDraftBlocks(activeRule.blocks);
+    setSelectedSliderMargin(null);
     onDirtyChange?.(false);
   };
 
@@ -163,11 +167,47 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
   const batchTiers = useMemo(() => computeBatchTiers(evalResult), [evalResult]);
 
   const currentClampedMargin = useMemo(() => {
+    if (selectedSliderMargin !== null) {
+      return selectedSliderMargin;
+    }
+    const autoMarkupBlock = draftBlocks.find(
+      (b) =>
+        b.type === 'PERCENT_MODIFIER' &&
+        !isFeeBlock(b) &&
+        typeof b.auto_target_margin === 'number'
+    );
+    if (autoMarkupBlock && typeof autoMarkupBlock.auto_target_margin === 'number') {
+      return Math.min(80, Math.max(10, Math.round(autoMarkupBlock.auto_target_margin)));
+    }
     const rounded = Math.round(evalResult.netMarginPercent);
     return Math.min(80, Math.max(10, isFinite(rounded) ? rounded : 30));
-  }, [evalResult.netMarginPercent]);
+  }, [selectedSliderMargin, draftBlocks, evalResult.netMarginPercent]);
+
+  const isTargetMarginUnachievable = useMemo(() => {
+    if (evalResult.isMarginUnachievable) return true;
+    if (
+      selectedSliderMargin !== null &&
+      evalResult.percentageFeesRate + selectedSliderMargin / 100 >= 1.0
+    ) {
+      return true;
+    }
+    return false;
+  }, [evalResult.isMarginUnachievable, evalResult.percentageFeesRate, selectedSliderMargin]);
+
+  const hasAutoTargetMargin = useMemo(
+    () =>
+      selectedSliderMargin !== null ||
+      draftBlocks.some(
+        (b) =>
+          b.type === 'PERCENT_MODIFIER' &&
+          !isFeeBlock(b) &&
+          typeof b.auto_target_margin === 'number'
+      ),
+    [selectedSliderMargin, draftBlocks]
+  );
 
   const handleTargetMarginSliderChange = (nextMarginPct: number) => {
+    setSelectedSliderMargin(nextMarginPct);
     const updatedBlocks = applyTargetMarginToBlocks(
       draftBlocks,
       sampleCosts,
@@ -188,7 +228,7 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
           {
             id: generateId('blk'),
             type: 'PERCENT_MODIFIER',
-            label: 'Markup %',
+            label: 'Profit Markup',
             value: 60,
             target: 'RUNNING_SUBTOTAL',
             role: 'MARKUP',
@@ -379,10 +419,10 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
                   </div>
                 </div>
 
-                {/* Auto-Generated Visual Formula Pipeline (Breadcrumb Display) */}
+                {/* Auto-Generated Visual Pricing Formula (Breadcrumb Display) */}
                 <div className="pt-1">
                   <span className="block text-[11px] font-normal text-[#64748B] mb-2">
-                    Formula Pipeline
+                    Pricing Formula
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {draftBlocks.map((block, idx) => {
@@ -411,37 +451,53 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
                 </div>
               </div>
 
-              {/* Interactive Price Steps */}
+              {/* Interactive Price Breakdown */}
               <div>
                 <div className="mb-3">
                   <h3 className="text-sm font-medium text-[#2D3134]">
-                    Price Steps
+                    Price Breakdown
                   </h3>
                   <p className="text-xs font-normal text-[#64748B]">
-                    Markup % is applied as an operational multiplier on
-                    accumulated cost; Marketplace Fee % is grossed up on final
-                    retail price (`C / (1 - F_pct)`).
+                    Configure your production cost steps, profit markup, and selling fees in order.
                   </p>
                 </div>
 
                 <RulePipelineStack
                   steps={evalResult.steps}
-                  onChangeBlocks={(nextBlocks) => setDraftBlocks(nextBlocks)}
+                  onChangeBlocks={(nextBlocks) => {
+                    setSelectedSliderMargin(null);
+                    setDraftBlocks(nextBlocks);
+                  }}
                 />
               </div>
 
               <div className="space-y-6 pt-4 border-t border-slate-200">
-                {/* Interactive Target Profit Margin Slider (10% - 80%) */}
+                {/* Interactive Target Net Margin Slider (10% - 80%) */}
                 <div className="bg-[#F8F9FA] rounded-2xl p-5 border border-slate-200 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <label
-                        htmlFor="rule-target-margin-slider"
-                        className="text-xs font-semibold text-[#2D3134] block"
-                      >
-                        Target Profit Margin Slider
-                      </label>
-                      <span className="text-[11px] font-normal text-[#64748B]">
+                      <div className="inline-flex items-center gap-1.5">
+                        <label
+                          htmlFor="rule-target-margin-slider"
+                          className="text-xs font-semibold text-[#2D3134]"
+                        >
+                          Target Net Margin
+                        </label>
+                        <span
+                          className="relative group/tooltip inline-flex items-center cursor-help text-[#64748B] hover:text-[#2D3134]"
+                          tabIndex={0}
+                          aria-label="The percentage of the final selling price you want to retain as profit after production costs and applicable selling fees."
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                          <span
+                            role="tooltip"
+                            className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-60 p-2 rounded-xl bg-[#2D3134] text-white text-[11px] font-normal leading-snug shadow-md opacity-0 group-hover/tooltip:opacity-100 group-focus-within/tooltip:opacity-100 transition-opacity z-30"
+                          >
+                            The percentage of the final selling price you want to retain as profit after production costs and applicable selling fees.
+                          </span>
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-normal text-[#64748B] block">
                         Slide (10%–80%) to dynamically adjust Markup % for your
                         desired net margin
                       </span>
@@ -473,16 +529,31 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
                       80%
                     </span>
                   </div>
+
+                  {hasAutoTargetMargin && !isTargetMarginUnachievable && (
+                    <p className="text-[11px] font-normal text-[#2A8C82]">
+                      Automatically calculated to achieve your target net margin.
+                    </p>
+                  )}
+
+                  {isTargetMarginUnachievable && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+                      <span>
+                        The selected net margin is mathematically unachievable with current fees.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Target Price & Gross-Up Marketplace Fee Breakdown Card */}
+                {/* Suggested Selling Price & Gross-Up Marketplace Fee Breakdown Card */}
                 <div className="bg-[#F8F9FA] rounded-2xl p-6 border border-slate-200 space-y-5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="space-y-1.5">
                       <div className="inline-flex items-center gap-1.5 text-xs font-normal text-[#64748B]">
                         <Sparkles className="w-3.5 h-3.5 text-[#F4B266]" />
                         <span>
-                          Gross Final Retail Price (
+                          Suggested Selling Price (
                           {previewProduct?.name || 'Sample'})
                         </span>
                       </div>
@@ -498,14 +569,14 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
 
                     <div className="text-left sm:text-right">
                       <span className="text-[11px] font-normal text-[#64748B] block">
-                        Subtotal Before % Fees (C)
+                        Price Before Marketplace Fees
                       </span>
                       <span className="text-sm font-semibold text-[#2D3134]">
                         {formatCurrency(evalResult.subtotalBeforePercentFees)}
                       </span>
                       {evalResult.percentageFeesRate > 0 && (
                         <span className="block text-[11px] font-normal text-[#2A8C82]">
-                          Gross-up: C ÷ (1 −{' '}
+                          Gross-up: {formatCurrency(evalResult.subtotalBeforePercentFees)} ÷ (1 −{' '}
                           {(evalResult.percentageFeesRate * 100).toFixed(1)}%)
                         </span>
                       )}
@@ -516,7 +587,7 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-200">
                     <div>
                       <span className="block text-[11px] font-normal text-[#64748B]">
-                        Direct Costs
+                        Production Costs
                       </span>
                       <span className="text-sm font-semibold text-[#2D3134] mt-0.5 block">
                         {formatCurrency(evalResult.directCostsTotal)}
@@ -531,7 +602,7 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
 
                     <div>
                       <span className="block text-[11px] font-normal text-[#64748B]">
-                        Deducted Marketplace Fees
+                        Estimated Selling Fees
                       </span>
                       <span className="text-sm font-semibold text-[#2A8C82] mt-0.5 block">
                         -{formatCurrency(evalResult.platformFeesTotal)}
@@ -545,19 +616,19 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
 
                     <div>
                       <span className="block text-[11px] font-normal text-[#64748B]">
-                        Net Revenue
+                        Revenue After Fees
                       </span>
                       <span className="text-sm font-semibold text-[#2D3134] mt-0.5 block">
                         {formatCurrency(evalResult.netRevenue)}
                       </span>
                       <span className="block text-[10px] font-normal text-[#64748B]">
-                        Retail − Marketplace Fees
+                        Selling Price − Estimated Selling Fees
                       </span>
                     </div>
 
                     <div>
                       <span className="block text-[11px] font-normal text-[#64748B]">
-                        Net Profit &amp; Margin
+                        Estimated Profit &amp; Margin
                       </span>
                       <span className="text-sm font-semibold text-[#E78358] mt-0.5 block">
                         {formatCurrency(evalResult.netProfit)}{' '}
@@ -566,26 +637,30 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
                         </span>
                       </span>
                       <span className="block text-[10px] font-normal text-[#64748B]">
-                        (Net Rev − Direct Costs) ÷ Retail
+                        Revenue After Fees − Production Costs
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Lightweight Batch Discounts Table */}
+                {/* Bulk Pricing & Profit Estimates Table */}
                 <div>
-                  <h4 className="text-xs font-normal text-[#64748B] mb-2">
-                    Quantity Estimates
+                  <h4 className="text-xs font-medium text-[#2D3134] mb-2">
+                    Bulk Pricing &amp; Profit Estimates
                   </h4>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="border-b border-slate-200 text-[#64748B] font-normal">
                           <th className="py-2 px-3 font-normal">Quantity</th>
+                          <th className="py-2 px-3 font-normal">Discount</th>
                           <th className="py-2 px-3 font-normal">Unit Price</th>
-                          <th className="py-2 px-3 font-normal">Total</th>
+                          <th className="py-2 px-3 font-normal">Order Total</th>
                           <th className="py-2 px-3 font-normal text-right">
-                            Profit
+                            Estimated Profit
+                          </th>
+                          <th className="py-2 px-3 font-normal text-right">
+                            Profit Margin %
                           </th>
                         </tr>
                       </thead>
@@ -593,7 +668,12 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
                         {batchTiers.map((tier) => (
                           <tr key={tier.qty}>
                             <td className="py-2.5 px-3 font-medium text-[#2D3134]">
-                              {tier.label}
+                              {tier.qty} {tier.qty === 1 ? 'unit' : 'units'}
+                            </td>
+                            <td className="py-2.5 px-3 font-normal text-[#64748B]">
+                              {tier.discountPercent > 0
+                                ? `-${tier.discountPercent}%`
+                                : '0%'}
                             </td>
                             <td className="py-2.5 px-3 font-medium text-[#2D3134]">
                               {formatCurrency(tier.unitPrice)}
@@ -602,9 +682,38 @@ export const PricingRulesView: React.FC<PricingRulesViewProps> = ({
                               {formatCurrency(tier.totalRevenue)}
                             </td>
                             <td className="py-2.5 px-3 text-right font-medium text-[#2A8C82]">
-                              {formatCurrency(tier.totalProfit)}{' '}
-                              <span className="text-[#64748B] font-normal">
-                                ({tier.marginPercent.toFixed(0)}%)
+                              {formatCurrency(tier.totalProfit)}
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <span className="inline-flex items-center justify-end gap-1.5">
+                                <span
+                                  className={`font-medium ${
+                                    tier.warningState === 'NEGATIVE'
+                                      ? 'text-rose-600'
+                                      : tier.warningState === 'LOW_MARGIN'
+                                      ? 'text-amber-700'
+                                      : 'text-[#64748B]'
+                                  }`}
+                                >
+                                  {tier.marginPercent.toFixed(1)}%
+                                </span>
+                                {tier.warningState && (
+                                  <span
+                                    title={
+                                      tier.warningState === 'NEGATIVE'
+                                        ? 'Bulk discount reduces net profit below 0'
+                                        : 'Bulk discount reduces net margin below 10%'
+                                    }
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-medium"
+                                  >
+                                    <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                                    <span>
+                                      {tier.warningState === 'NEGATIVE'
+                                        ? 'Loss'
+                                        : 'Low (<10%)'}
+                                    </span>
+                                  </span>
+                                )}
                               </span>
                             </td>
                           </tr>

@@ -12,6 +12,7 @@ import {
   Sparkles,
   Sliders,
   ArrowUpRight,
+  Info,
 } from 'lucide-react';
 import {
   LaborRateItem,
@@ -241,6 +242,22 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
     const rounded = Math.round(pipelineEvaluation.netMarginPercent);
     return Math.min(80, Math.max(10, isFinite(rounded) ? rounded : 30));
   }, [customTargetMarginPercent, pipelineEvaluation.netMarginPercent]);
+
+  const isTargetMarginUnachievable = useMemo(() => {
+    if (pipelineEvaluation.isMarginUnachievable) return true;
+    if (
+      customTargetMarginPercent !== null &&
+      pipelineEvaluation.percentageFeesRate + customTargetMarginPercent / 100 >=
+        1.0
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    pipelineEvaluation.isMarginUnachievable,
+    pipelineEvaluation.percentageFeesRate,
+    customTargetMarginPercent,
+  ]);
 
   const batchTiers = useMemo(
     () => computeBatchTiers(pipelineEvaluation),
@@ -830,11 +847,11 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 </select>
               </div>
 
-              {/* Read-Only Informative Price Steps Pipeline */}
+              {/* Read-Only Informative Pricing Formula & Price Breakdown */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-normal text-[#64748B]">
-                    Pricing Pipeline (Price Steps)
+                    Pricing Formula &amp; Price Breakdown
                   </span>
                   {onManageRules && (
                     <button
@@ -853,7 +870,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                   )}
                 </div>
 
-                {/* Visual Formula Breadcrumb */}
+                {/* Visual Pricing Formula Breadcrumb */}
                 {effectiveBlocks.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                     {effectiveBlocks.map((block, idx) => {
@@ -881,7 +898,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                   </div>
                 )}
 
-                {/* Read-Only Step Breakdown */}
+                {/* Read-Only Price Breakdown */}
                 <div className="divide-y divide-slate-200 pt-1">
                   {pipelineEvaluation.steps.map((step, idx) => {
                     const isDiscount = step.block.type === 'DISCOUNT';
@@ -925,17 +942,32 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 </div>
               </div>
 
-              {/* INTERACTIVE TARGET PROFIT MARGIN SLIDER (10% - 80%) */}
+              {/* INTERACTIVE TARGET NET MARGIN SLIDER (10% - 80%) */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <label
-                      htmlFor="product-target-margin-slider"
-                      className="text-xs font-semibold text-[#2D3134] block"
-                    >
-                      Target Profit Margin
-                    </label>
-                    <span className="text-[11px] font-normal text-[#64748B]">
+                    <div className="inline-flex items-center gap-1.5">
+                      <label
+                        htmlFor="product-target-margin-slider"
+                        className="text-xs font-semibold text-[#2D3134]"
+                      >
+                        Target Net Margin
+                      </label>
+                      <span
+                        className="relative group/tooltip inline-flex items-center cursor-help text-[#64748B] hover:text-[#2D3134]"
+                        tabIndex={0}
+                        aria-label="The percentage of the final selling price you want to retain as profit after production costs and applicable selling fees."
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                        <span
+                          role="tooltip"
+                          className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-60 p-2 rounded-xl bg-[#2D3134] text-white text-[11px] font-normal leading-snug shadow-md opacity-0 group-hover/tooltip:opacity-100 group-focus-within/tooltip:opacity-100 transition-opacity z-30"
+                        >
+                          The percentage of the final selling price you want to retain as profit after production costs and applicable selling fees.
+                        </span>
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-normal text-[#64748B] block">
                       Dynamically adjusts Markup % to achieve your target net
                       margin
                     </span>
@@ -979,45 +1011,66 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                     80%
                   </span>
                 </div>
+
+                {customTargetMarginPercent !== null &&
+                  !isTargetMarginUnachievable && (
+                    <p className="text-[11px] font-normal text-[#2A8C82]">
+                      Automatically calculated to achieve your target net margin.
+                    </p>
+                  )}
+
+                {isTargetMarginUnachievable && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+                    <span>
+                      The selected net margin is mathematically unachievable with current fees.
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {/* TARGET PRICE & GROSS-UP MARKETPLACE FEE SUMMARY CARD */}
+              {/* SUGGESTED SELLING PRICE & GROSS-UP MARKETPLACE FEE SUMMARY CARD */}
               <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200 space-y-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#64748B]">
                       <Sparkles className="w-3.5 h-3.5 text-[#F4B266]" />
                       <span>
-                        Suggested Retail Price ({activeRule?.name})
+                        Suggested Selling Price ({activeRule?.name})
                       </span>
                     </span>
                     <div className="text-3xl sm:text-4xl font-bold text-[#2A8C82] tracking-tight mt-1">
                       {formatCurrency(pipelineEvaluation.suggestedRetailPrice)}
                     </div>
-                    {pipelineEvaluation.percentageFeesRate > 0 && (
-                      <span className="block text-[11px] font-normal text-[#64748B] mt-1">
-                        Gross-up: Subtotal{' '}
+                    <span className="block text-[11px] font-normal text-[#64748B] mt-1">
+                      Price Before Marketplace Fees:{' '}
+                      <strong className="font-semibold text-[#2D3134]">
                         {formatCurrency(
                           pipelineEvaluation.subtotalBeforePercentFees
-                        )}{' '}
-                        ÷ (1 −{' '}
-                        {(pipelineEvaluation.percentageFeesRate * 100).toFixed(
-                          1
                         )}
-                        %)
-                      </span>
-                    )}
+                      </strong>
+                      {pipelineEvaluation.percentageFeesRate > 0 && (
+                        <>
+                          {' '}
+                          • Gross-up: ÷ (1 −{' '}
+                          {(pipelineEvaluation.percentageFeesRate * 100).toFixed(
+                            1
+                          )}
+                          %)
+                        </>
+                      )}
+                    </span>
                   </div>
 
                   <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#E78358]/10 text-[#E78358] border border-[#E78358]/30 text-xs font-semibold shrink-0">
-                    {pipelineEvaluation.netMarginPercent.toFixed(1)}% margin
+                    {pipelineEvaluation.netMarginPercent.toFixed(1)}% Net Margin
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-200 text-xs">
                   <div>
                     <span className="text-[#64748B] font-normal block">
-                      Direct Costs
+                      Production Costs
                     </span>
                     <span className="text-sm font-semibold text-[#2D3134] mt-0.5 block">
                       {formatCurrency(pipelineEvaluation.directCostsTotal)}
@@ -1032,7 +1085,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
 
                   <div>
                     <span className="text-[#64748B] font-normal block">
-                      Marketplace Fees
+                      Estimated Selling Fees
                     </span>
                     <span className="text-sm font-semibold text-[#2A8C82] mt-0.5 block">
                       -{formatCurrency(pipelineEvaluation.platformFeesTotal)}
@@ -1047,7 +1100,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
 
                   <div>
                     <span className="text-[#64748B] font-normal block">
-                      Net Revenue
+                      Revenue After Fees
                     </span>
                     <span className="text-sm font-semibold text-[#2D3134] mt-0.5 block">
                       {formatCurrency(pipelineEvaluation.netRevenue)}
@@ -1056,7 +1109,7 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
 
                   <div>
                     <span className="text-[#64748B] font-normal block">
-                      Net Profit
+                      Estimated Profit &amp; Margin
                     </span>
                     <span className="text-sm font-semibold text-[#E78358] mt-0.5 block">
                       {formatCurrency(pipelineEvaluation.netProfit)}{' '}
@@ -1068,20 +1121,24 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                 </div>
               </div>
 
-              {/* Lightweight Batch / Tier Table */}
+              {/* Bulk Pricing & Profit Estimates Table */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-2">
                 <span className="text-xs font-medium text-[#2D3134] block px-1">
-                  Quantity Discounts &amp; Batch Margins
+                  Bulk Pricing &amp; Profit Estimates
                 </span>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="border-b border-slate-200 text-[#64748B] font-normal">
                         <th className="py-2 px-2.5 font-normal">Quantity</th>
+                        <th className="py-2 px-2.5 font-normal">Discount</th>
                         <th className="py-2 px-2.5 font-normal">Unit Price</th>
-                        <th className="py-2 px-2.5 font-normal">Total</th>
+                        <th className="py-2 px-2.5 font-normal">Order Total</th>
                         <th className="py-2 px-2.5 font-normal text-right">
-                          Profit
+                          Estimated Profit
+                        </th>
+                        <th className="py-2 px-2.5 font-normal text-right">
+                          Profit Margin %
                         </th>
                       </tr>
                     </thead>
@@ -1089,7 +1146,12 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                       {batchTiers.map((tier) => (
                         <tr key={tier.qty}>
                           <td className="py-2 px-2.5 font-medium text-[#2D3134]">
-                            {tier.label}
+                            {tier.qty} {tier.qty === 1 ? 'unit' : 'units'}
+                          </td>
+                          <td className="py-2 px-2.5 font-normal text-[#64748B]">
+                            {tier.discountPercent > 0
+                              ? `-${tier.discountPercent}%`
+                              : '0%'}
                           </td>
                           <td className="py-2 px-2.5 font-medium text-[#2D3134]">
                             {formatCurrency(tier.unitPrice)}
@@ -1098,9 +1160,38 @@ export const ProductBomModal: React.FC<ProductBomModalProps> = ({
                             {formatCurrency(tier.totalRevenue)}
                           </td>
                           <td className="py-2 px-2.5 text-right font-medium text-[#2A8C82]">
-                            {formatCurrency(tier.totalProfit)}{' '}
-                            <span className="text-[11px] font-normal text-[#64748B]">
-                              ({tier.marginPercent.toFixed(0)}%)
+                            {formatCurrency(tier.totalProfit)}
+                          </td>
+                          <td className="py-2 px-2.5 text-right">
+                            <span className="inline-flex items-center justify-end gap-1.5">
+                              <span
+                                className={`font-medium ${
+                                  tier.warningState === 'NEGATIVE'
+                                    ? 'text-rose-600'
+                                    : tier.warningState === 'LOW_MARGIN'
+                                    ? 'text-amber-700'
+                                    : 'text-[#64748B]'
+                                }`}
+                              >
+                                {tier.marginPercent.toFixed(1)}%
+                              </span>
+                              {tier.warningState && (
+                                <span
+                                  title={
+                                    tier.warningState === 'NEGATIVE'
+                                      ? 'Bulk discount reduces net profit below 0'
+                                      : 'Bulk discount reduces net margin below 10%'
+                                  }
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-medium"
+                                >
+                                  <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                                  <span>
+                                    {tier.warningState === 'NEGATIVE'
+                                      ? 'Loss'
+                                      : 'Low (<10%)'}
+                                  </span>
+                                </span>
+                              )}
                             </span>
                           </td>
                         </tr>

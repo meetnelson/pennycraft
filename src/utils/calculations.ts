@@ -1,5 +1,4 @@
 import {
-  EvaluatedBlockStep,
   LaborRateItem,
   MaterialItem,
   PackagingItem,
@@ -10,6 +9,33 @@ import {
   ProductPackagingLine,
   PurchaseUnit,
 } from '../types/pricing';
+import {
+  BatchTierRow,
+  calculateGrossUpSellingPrice,
+  calculateTargetNetMarginPrice,
+  ceilToCent,
+  computeBatchTiers,
+  evaluatePricingPipeline,
+  getFixedFeeScope,
+  isFeeBlock,
+  isPercentFeeBlock,
+  roundToCent,
+  runPricingEngineVerificationSuite,
+} from './pricingEngine';
+
+export {
+  calculateGrossUpSellingPrice,
+  calculateTargetNetMarginPrice,
+  ceilToCent,
+  computeBatchTiers,
+  evaluatePricingPipeline,
+  getFixedFeeScope,
+  isFeeBlock,
+  isPercentFeeBlock,
+  roundToCent,
+  runPricingEngineVerificationSuite,
+};
+export type { BatchTierRow };
 
 export interface UnitOption {
   value: PurchaseUnit;
@@ -371,43 +397,6 @@ export function computeProductBomTotals(
   };
 }
 
-/**
- * Determines whether a PricingBlock represents a Marketplace / Platform Fee
- * (either Percentage Fee % or Fixed Fee $).
- */
-export function isFeeBlock(block: PricingBlock): boolean {
-  if (
-    block.type === 'BASE_MATERIALS' ||
-    block.type === 'BASE_LABOR' ||
-    block.type === 'BASE_PACKAGING' ||
-    block.type === 'DISCOUNT'
-  ) {
-    return false;
-  }
-  if (block.role === 'FEE') return true;
-  if (
-    block.role === 'MARKUP' ||
-    block.role === 'MARGIN' ||
-    block.role === 'OVERHEAD'
-  ) {
-    return false;
-  }
-  const lower = (block.label || '').toLowerCase();
-  return lower.includes('fee') || lower.includes('commission');
-}
-
-/**
- * Determines whether a Fee PricingBlock is a Percentage Fee (%) vs. Fixed Fee ($).
- * Defaults to true for legacy PERCENT_MODIFIER fee blocks where is_percent is undefined.
- */
-export function isPercentFeeBlock(block: PricingBlock): boolean {
-  if (!isFeeBlock(block)) return false;
-  if (typeof block.is_percent === 'boolean') {
-    return block.is_percent;
-  }
-  return block.type === 'PERCENT_MODIFIER';
-}
-
 export function formatBlockPillLabel(block: PricingBlock): string {
   if (block.type === 'BASE_MATERIALS') return 'Materials';
   if (block.type === 'BASE_LABOR') return 'Labor';
@@ -416,20 +405,22 @@ export function formatBlockPillLabel(block: PricingBlock): string {
     const val = block.value ?? 0;
     if (isPercentFeeBlock(block)) {
       const cleanLabel = block.label
-        .replace(/^Platform Fee\s*\((.*)\)$/i, '$1 Fee')
+        .replace(/^Platform Fee\s*\((.*)\)$/i, 'Etsy Selling Fees')
         .trim();
-      return `+${val}% ${cleanLabel || 'Fee'}`;
+      return `+${val}% ${cleanLabel || 'Etsy Selling Fees'}`;
     }
-    return `+${formatCurrency(val)} ${block.label || 'Fixed Fee'}`;
+    const scopeLabel =
+      block.fee_scope === 'PER_ITEM' ? 'per item' : 'per order';
+    return `+${formatCurrency(val)} ${block.label || 'Fixed Fee'} (${scopeLabel})`;
   }
   if (block.type === 'PERCENT_MODIFIER') {
     const val = block.value ?? 0;
     const cleanLabel = block.label
-      .replace(/^Profit\s+/i, '')
+      .replace(/\bProfit\s+Margin\b/gi, 'Profit Markup')
       .replace(/\bMargin\b/gi, 'Markup')
       .replace(/%/g, '')
       .trim();
-    return `+${val}% ${cleanLabel || 'Markup'}`;
+    return `+${val}% ${cleanLabel || 'Profit Markup'}`;
   }
   if (block.type === 'FIXED_ADD') {
     return `+${formatCurrency(block.value ?? 0)} ${block.label}`;
@@ -443,194 +434,6 @@ export function formatBlockPillLabel(block: PricingBlock): string {
   return block.label;
 }
 
-/**
- * Evaluates a PricingRule block pipeline using the Gross-up Method for Marketplace Fees:
- * - Subtotal C = (Materials + Packaging + Labor + Markup + Extra $ + Fixed Fees $ - Discounts)
- * - Total Fee Percentage = F_pct (decimal, e.g. 0.10 for 10%)
- * - Final Retail Price = C / (1 - F_pct)
- * - Deducted Marketplace Fees = Final Retail Price * F_pct + Fixed Fees
- * - Net Revenue = Final Retail Price - Deducted Marketplace Fees
- * - Direct Costs = Materials + Packaging + Labor + Extra $
- * - Net Profit = Net Revenue - Direct Costs
- * - Net Margin % = ((Net Revenue - Direct Costs) / Final Retail Price) * 100
- */
-export function evaluatePricingPipeline(
-  blocks: PricingBlock[],
-  costs: {
-    materialsCost: number;
-    laborCost: number;
-    packagingCost: number;
-  }
-): PipelineEvaluationResult {
-  // Pass 1: Compute Subtotal C across all non-percentage-fee blocks and sum F_pct
-  let runningC = 0;
-  let previousBlockAmount = 0;
-  let extraCostsTotal = 0;
-  let markupTotal = 0;
-  let fixedFeesTotal = 0;
-  let discountsTotal = 0;
-  let totalFeePercent = 0;
-
-  const preCalculatedDeltas: {
-    baseReferenceValue: number;
-    deltaAmount: number;
-    isPctFee: boolean;
-    pctFeeValue: number;
-  }[] = [];
-
-  for (const block of blocks) {
-    let baseReferenceValue = 0;
-    let deltaAmount = 0;
-    let isPctFee = false;
-    let pctFeeValue = 0;
-
-    if (block.type === 'BASE_MATERIALS') {
-      baseReferenceValue = costs.materialsCost;
-      deltaAmount = costs.materialsCost;
-      runningC += deltaAmount;
-      previousBlockAmount = Math.abs(deltaAmount);
-    } else if (block.type === 'BASE_LABOR') {
-      baseReferenceValue = costs.laborCost;
-      deltaAmount = costs.laborCost;
-      runningC += deltaAmount;
-      previousBlockAmount = Math.abs(deltaAmount);
-    } else if (block.type === 'BASE_PACKAGING') {
-      baseReferenceValue = costs.packagingCost;
-      deltaAmount = costs.packagingCost;
-      runningC += deltaAmount;
-      previousBlockAmount = Math.abs(deltaAmount);
-    } else if (isFeeBlock(block)) {
-      const val = Math.max(0, Number(block.value) || 0);
-      if (isPercentFeeBlock(block)) {
-        isPctFee = true;
-        pctFeeValue = val;
-        totalFeePercent += val;
-      } else {
-        // Fixed Fee ($)
-        baseReferenceValue = runningC;
-        deltaAmount = val;
-        fixedFeesTotal += val;
-        runningC = Math.max(0, runningC + deltaAmount);
-        previousBlockAmount = Math.abs(deltaAmount);
-      }
-    } else if (block.type === 'PERCENT_MODIFIER') {
-      // Operational Markup % on accumulated cost
-      const pct = Number(block.value) || 0;
-      if (block.target === 'PREVIOUS_BLOCK') {
-        baseReferenceValue = previousBlockAmount;
-      } else if (block.target === 'BASE_MATERIALS') {
-        baseReferenceValue = costs.materialsCost;
-      } else {
-        baseReferenceValue = runningC;
-      }
-      deltaAmount = baseReferenceValue * (pct / 100);
-      markupTotal += deltaAmount;
-      runningC = Math.max(0, runningC + deltaAmount);
-      previousBlockAmount = Math.abs(deltaAmount);
-    } else if (block.type === 'FIXED_ADD') {
-      // Extra $ cost / buffer
-      const val = Number(block.value) || 0;
-      baseReferenceValue = runningC;
-      deltaAmount = val;
-      extraCostsTotal += val;
-      runningC = Math.max(0, runningC + deltaAmount);
-      previousBlockAmount = Math.abs(deltaAmount);
-    } else if (block.type === 'DISCOUNT') {
-      const val = Math.abs(Number(block.value) || 0);
-      if (block.is_percent) {
-        if (block.target === 'PREVIOUS_BLOCK') {
-          baseReferenceValue = previousBlockAmount;
-        } else if (block.target === 'BASE_MATERIALS') {
-          baseReferenceValue = costs.materialsCost;
-        } else {
-          baseReferenceValue = runningC;
-        }
-        deltaAmount = -(baseReferenceValue * (val / 100));
-      } else {
-        baseReferenceValue = runningC;
-        deltaAmount = -val;
-      }
-      discountsTotal += Math.abs(deltaAmount);
-      runningC = Math.max(0, runningC + deltaAmount);
-      previousBlockAmount = Math.abs(deltaAmount);
-    }
-
-    preCalculatedDeltas.push({
-      baseReferenceValue,
-      deltaAmount,
-      isPctFee,
-      pctFeeValue,
-    });
-  }
-
-  const subtotalBeforePercentFees = Math.max(0, runningC);
-  // Clamp F_pct to < 0.99 to prevent division by zero
-  const percentageFeesRate = Math.min(
-    0.99,
-    Math.max(0, totalFeePercent / 100)
-  );
-  const suggestedRetailPrice =
-    percentageFeesRate > 0
-      ? subtotalBeforePercentFees / (1 - percentageFeesRate)
-      : subtotalBeforePercentFees;
-
-  const percentageFeesTotal = suggestedRetailPrice * percentageFeesRate;
-  const platformFeesTotal = percentageFeesTotal + fixedFeesTotal;
-
-  // Pass 2: Build step-by-step trace where percentage fees reflect their exact grossed-up cut
-  const steps: EvaluatedBlockStep[] = [];
-  let stepRunningSubtotal = 0;
-
-  for (let i = 0; i < blocks.length; i++) {
-    const block = blocks[i];
-    const info = preCalculatedDeltas[i];
-    const baseReferenceValue = info.isPctFee
-      ? suggestedRetailPrice
-      : info.baseReferenceValue;
-    const deltaAmount = info.isPctFee
-      ? suggestedRetailPrice * (info.pctFeeValue / 100)
-      : info.deltaAmount;
-
-    stepRunningSubtotal = Math.max(0, stepRunningSubtotal + deltaAmount);
-
-    steps.push({
-      block,
-      baseReferenceValue,
-      deltaAmount,
-      runningSubtotal: stepRunningSubtotal,
-    });
-  }
-
-  const totalProductionCost =
-    costs.materialsCost + costs.laborCost + costs.packagingCost;
-  const directCostsTotal = totalProductionCost + extraCostsTotal;
-  const netRevenue = suggestedRetailPrice - platformFeesTotal;
-  const netProfit = netRevenue - directCostsTotal;
-  const netMarginPercent =
-    suggestedRetailPrice > 0 ? (netProfit / suggestedRetailPrice) * 100 : 0;
-
-  return {
-    steps,
-    totalMaterialsCost: costs.materialsCost,
-    totalLaborCost: costs.laborCost,
-    totalPackagingCost: costs.packagingCost,
-    totalProductionCost,
-    extraCostsTotal,
-    directCostsTotal,
-    markupTotal,
-    subtotalBeforePercentFees,
-    percentageFeesRate,
-    percentageFeesTotal,
-    fixedFeesTotal,
-    suggestedRetailPrice,
-    platformFeesTotal,
-    netRevenue,
-    discountsTotal,
-    netProfit,
-    netMarginPercent,
-  };
-}
-
 export interface TargetMarginSimulationResult {
   targetMarginPercent: number;
   suggestedRetailPrice: number;
@@ -642,51 +445,44 @@ export interface TargetMarginSimulationResult {
   netProfit: number;
   resultingMarginPercent: number;
   equivalentMarkupPercent: number;
+  isUnachievable: boolean;
 }
 
 /**
- * Computes the Suggested Retail Price, Marketplace Fees, Net Revenue, Net Profit,
- * and equivalent Markup % needed to achieve a Target Net Profit Margin (10% - 80%).
+ * Computes the Suggested Selling Price, Estimated Selling Fees, Revenue After Fees,
+ * Estimated Profit, and required Markup % needed to achieve a Target Net Margin (10% - 80%).
  */
 export function evaluateTargetMarginSimulation(
   evalResult: PipelineEvaluationResult,
   targetMarginPercent: number
 ): TargetMarginSimulationResult {
   const clampedTarget = Math.min(80, Math.max(10, targetMarginPercent));
-  const m = clampedTarget / 100;
-  const fPct = evalResult.percentageFeesRate;
-  const dCost = evalResult.directCostsTotal;
-  const fFixed = evalResult.fixedFeesTotal;
-
-  // P * (1 - F_pct - m) = DirectCosts + FixedFees
-  const denom = Math.max(0.01, 1 - fPct - m);
-  const suggestedRetailPrice = (dCost + fFixed) / denom;
-  const percentageFeesTotal = suggestedRetailPrice * fPct;
-  const deductedMarketplaceFees = percentageFeesTotal + fFixed;
-  const netRevenue = suggestedRetailPrice - deductedMarketplaceFees;
-  const netProfit = netRevenue - dCost;
-  const resultingMarginPercent =
-    suggestedRetailPrice > 0 ? (netProfit / suggestedRetailPrice) * 100 : 0;
-  const equivalentMarkupPercent =
-    dCost > 0 ? (Math.max(0, netProfit) / dCost) * 100 : 0;
+  const res = calculateTargetNetMarginPrice({
+    totalProductionCosts: evalResult.directCostsTotal,
+    fixedFees: evalResult.fixedFeesTotal,
+    totalPercentageFees: evalResult.percentageFeesRate,
+    targetNetMargin: clampedTarget / 100,
+  });
 
   return {
     targetMarginPercent: clampedTarget,
-    suggestedRetailPrice,
-    deductedMarketplaceFees,
-    percentageFeesTotal,
-    fixedFeesTotal: fFixed,
-    netRevenue,
-    directCostsTotal: dCost,
-    netProfit,
-    resultingMarginPercent,
-    equivalentMarkupPercent,
+    suggestedRetailPrice: res.sellingPrice,
+    deductedMarketplaceFees: res.estimatedSellingFees,
+    percentageFeesTotal: res.sellingPrice * evalResult.percentageFeesRate,
+    fixedFeesTotal: evalResult.fixedFeesTotal,
+    netRevenue: res.revenueAfterFees,
+    directCostsTotal: evalResult.directCostsTotal,
+    netProfit: res.estimatedNetProfit,
+    resultingMarginPercent: res.estimatedNetMarginPercent,
+    equivalentMarkupPercent: res.requiredMarkupPercent,
+    isUnachievable: res.isUnachievable,
   };
 }
 
 /**
- * Updates the Markup % step in a PricingBlock[] array so that the pipeline
- * achieves the specified targetMarginPercent (10% - 80%).
+ * Updates the Profit Markup % step in a PricingBlock[] array so that the pipeline
+ * achieves the specified targetMarginPercent (10% - 80%), setting auto_target_margin
+ * so the UI displays "Automatically calculated to achieve your target net margin."
  */
 export function applyTargetMarginToBlocks(
   blocks: PricingBlock[],
@@ -698,10 +494,16 @@ export function applyTargetMarginToBlocks(
   targetMarginPercent: number
 ): PricingBlock[] {
   const currentEval = evaluatePricingPipeline(blocks, costs);
-  const sim = evaluateTargetMarginSimulation(currentEval, targetMarginPercent);
+  const targetRes = calculateTargetNetMarginPrice({
+    totalProductionCosts: currentEval.directCostsTotal,
+    fixedFees: currentEval.fixedFeesTotal,
+    totalPercentageFees: currentEval.percentageFeesRate,
+    targetNetMargin: targetMarginPercent / 100,
+  });
+
   const desiredMarkupDollar = Math.max(
     0,
-    sim.netProfit + currentEval.discountsTotal
+    targetRes.requiredProfitDollar + currentEval.discountsTotal
   );
 
   const markupIdx = blocks.findIndex(
@@ -716,11 +518,20 @@ export function applyTargetMarginToBlocks(
         : currentEval.directCostsTotal;
     const newMarkupPct =
       baseRef > 0
-        ? Math.max(0, Number(((desiredMarkupDollar / baseRef) * 100).toFixed(1)))
+        ? Math.max(
+            0,
+            Number(((desiredMarkupDollar / baseRef) * 100).toFixed(1))
+          )
         : 50;
 
     return blocks.map((b, idx) =>
-      idx === markupIdx ? { ...b, value: newMarkupPct } : b
+      idx === markupIdx
+        ? {
+            ...b,
+            value: newMarkupPct,
+            auto_target_margin: targetMarginPercent,
+          }
+        : b
     );
   }
 
@@ -734,10 +545,11 @@ export function applyTargetMarginToBlocks(
   const newMarkupBlock: PricingBlock = {
     id: generateId('blk'),
     type: 'PERCENT_MODIFIER',
-    label: 'Markup %',
+    label: 'Profit Markup',
     value: newMarkupPct,
     target: 'RUNNING_SUBTOTAL',
     role: 'MARKUP',
+    auto_target_margin: targetMarginPercent,
   };
 
   const firstFeeIdx = blocks.findIndex((b) => isFeeBlock(b));
@@ -749,51 +561,51 @@ export function applyTargetMarginToBlocks(
   return next;
 }
 
-export interface BatchTierRow {
-  qty: number;
-  discountPercent: number;
-  label: string;
-  unitPrice: number;
-  totalRevenue: number;
-  unitProfit: number;
-  totalProfit: number;
-  marginPercent: number;
-}
-
 /**
- * Generates the Batch / Tier Simulator rows:
- * 1 unit (0%), 5 units (-5%), 10 units (-10%), 25 units (-15%)
+ * Generates the standard Canadian / International Etsy Realistic Fee Preset blocks:
+ * 1. Transaction Fee: 6.5% on selling price
+ * 2. Payment Processing: 3% on selling price + CA$0.25 fixed per order
+ * 3. Regulatory Operating Fee: 0.5% on selling price
  */
-export function computeBatchTiers(
-  evalResult: PipelineEvaluationResult
-): BatchTierRow[] {
-  const tiers = [
-    { qty: 1, discountPercent: 0, label: '1 unit' },
-    { qty: 5, discountPercent: 5, label: '5 units (-5%)' },
-    { qty: 10, discountPercent: 10, label: '10 units (-10%)' },
-    { qty: 25, discountPercent: 15, label: '25 units (-15%)' },
+export function createEtsyFeePresetBlocks(): PricingBlock[] {
+  return [
+    {
+      id: generateId('blk'),
+      type: 'PERCENT_MODIFIER',
+      label: 'Transaction Fee (Etsy)',
+      value: 6.5,
+      is_percent: true,
+      target: 'RUNNING_SUBTOTAL',
+      role: 'FEE',
+    },
+    {
+      id: generateId('blk'),
+      type: 'PERCENT_MODIFIER',
+      label: 'Payment Processing (%)',
+      value: 3.0,
+      is_percent: true,
+      target: 'RUNNING_SUBTOTAL',
+      role: 'FEE',
+    },
+    {
+      id: generateId('blk'),
+      type: 'FIXED_ADD',
+      label: 'Payment Processing (Fixed)',
+      value: 0.25,
+      is_percent: false,
+      role: 'FEE',
+      fee_scope: 'PER_ORDER',
+    },
+    {
+      id: generateId('blk'),
+      type: 'PERCENT_MODIFIER',
+      label: 'Regulatory Operating Fee',
+      value: 0.5,
+      is_percent: true,
+      target: 'RUNNING_SUBTOTAL',
+      role: 'FEE',
+    },
   ];
-
-  return tiers.map((t) => {
-    const unitPrice =
-      evalResult.suggestedRetailPrice * (1 - t.discountPercent / 100);
-    const totalRevenue = unitPrice * t.qty;
-    const unitFee =
-      unitPrice * evalResult.percentageFeesRate + evalResult.fixedFeesTotal;
-    const unitNetRevenue = unitPrice - unitFee;
-    const unitProfit = unitNetRevenue - evalResult.directCostsTotal;
-    const totalProfit = unitProfit * t.qty;
-    const marginPercent = unitPrice > 0 ? (unitProfit / unitPrice) * 100 : 0;
-
-    return {
-      ...t,
-      unitPrice,
-      totalRevenue,
-      unitProfit,
-      totalProfit,
-      marginPercent,
-    };
-  });
 }
 
 /**

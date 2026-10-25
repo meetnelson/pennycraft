@@ -160,10 +160,12 @@ function loadNormalizedInitialData() {
         : r.description,
     blocks: (r.blocks || []).map((b) => {
       const nextLabel =
-        b.label === 'Profit Margin'
-          ? 'Markup %'
+        b.label === 'Profit Margin' || b.label === 'Markup %'
+          ? 'Profit Markup'
           : b.label === 'Boutique Margin'
           ? 'Boutique Markup'
+          : b.label === 'Platform Fee (Etsy)'
+          ? 'Etsy Selling Fees'
           : b.label;
       const nextRole = b.role === 'MARGIN' ? 'MARKUP' : b.role;
       const nextIsPercent =
